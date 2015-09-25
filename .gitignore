@@ -1,0 +1,11 @@
+# system config junk file
+.DS_Store
+.DS_Store?
+*.swp
+*.pyc
+*.o
+p1/tsh
+p1/hercule-20150925110845-tsh.tar
+p1/testsuite/myspin
+p1/testsuite/mysplit
+p1/testsuite/mystop
