@@ -75,9 +75,17 @@ int main (int argc, char *argv[])
 
   while (!forceExit) /* repeat forever */
   {
+    // This line should be removed when handin.
     printf("tsh$ ");
     /* read command line */
     getCommandLine(&cmdLine, BUFSIZE);
+
+    // handle end of line
+    if (strlen(cmdLine) == 0)
+    {
+      forceExit = TRUE;
+      continue;
+    }
 
     if(strcmp(cmdLine, "exit") == 0)
     {
