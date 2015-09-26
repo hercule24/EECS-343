@@ -82,12 +82,57 @@ static bool ResolveExternalCmd(commandT*);
 /* forks and runs a external program */
 static void Exec(commandT*, bool);
 /* runs a builtin command */
-static void RunBuiltInCmd(commandT*);
-/* checks whether a command is a builtin command */
-static bool IsBuiltIn(char*);
+static void RunBuiltInCmd(commandT*, int index);
+/* return the index of if char * is a builtin command, otherwise -1 */
+static int findBuiltIn(char*);
+/* function for builtin cd */
+static int tsh_cd(commandT *cmd);
+/* function for builtin echo */
+static int tsh_echo(commandT *cmd);
 /************External Declaration*****************************************/
 
+/************Constants for builtin commands******************************/
+static const char *BuiltInCommands[] = {
+  "cd",
+  "echo"
+};
+
+/* 
+ * array of function pointers
+ */
+static int (*FUNCTION_POINTERS[]) (commandT *cmd) = {
+  &tsh_cd,
+  &tsh_echo
+};
+
 /**************Implementation***********************************************/
+static int tsh_cd(commandT *cmd)
+{
+  if (cmd->argc == 1) {
+    chdir("~");
+  } else {
+  }
+
+  return 0;
+}
+
+// no sure if newline character will be deleted after interpretation.
+static int tsh_echo(commandT *cmd)
+{
+  if (cmd->argc == 1) {
+    printf("\n");
+  } else {
+    for (int i = 1; i < cmd->argc; i++) {
+      printf("%s", cmd->argv[i]);
+      if (i != cmd->argc - 1) {
+        printf(" ");
+      }
+    }
+    printf("\n");
+  }
+  return 0;
+}
+
 int total_task;
 void RunCmd(commandT** cmd, int n)
 {
@@ -106,9 +151,11 @@ void RunCmdFork(commandT* cmd, bool fork)
 {
   if (cmd->argc<=0)
     return;
-  if (IsBuiltIn(cmd->argv[0]))
+  int index;
+  index = findBuiltIn(cmd->argv[0]);
+  if (index != -1)
   {
-    RunBuiltInCmd(cmd);
+    RunBuiltInCmd(cmd, index);
   }
   else
   {
@@ -197,14 +244,21 @@ static void Exec(commandT* cmd, bool forceFork)
 {
 }
 
-static bool IsBuiltIn(char* cmd)
+static int findBuiltIn(char* cmd)
 {
-  return FALSE;     
+  for (int i = 0; i < NBUILTINCOMMANDS; i++) {
+    if (strcmp(cmd, BuiltInCommands[i]) == 0) {
+      return i;
+    }
+  }
+
+  return -1;
 }
 
 
-static void RunBuiltInCmd(commandT* cmd)
+static void RunBuiltInCmd(commandT* cmd, int index)
 {
+  (*FUNCTION_POINTERS[index]) (cmd);
 }
 
 void CheckJobs()
