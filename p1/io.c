@@ -38,6 +38,7 @@
 #include <unistd.h>
 #include <termios.h>
 #include <assert.h>
+#include <stdlib.h>
 
 /************Private include**********************************************/
 #include "io.h"
@@ -98,9 +99,11 @@ void getCommandLine(char** buf, int size)
   cmd[0] = '\0';
 
   isReading = TRUE;
-  while (((ch = getc(stdin)) != EOF) &&
-      (ch != '\n'))
+  while ((ch = getc(stdin)) != '\n')
   {
+    if (ch == EOF) {
+      exit(0);
+    }
     if (used == size)
     {
       size *= 2;

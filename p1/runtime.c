@@ -240,8 +240,16 @@ static bool ResolveExternalCmd(commandT* cmd)
   return FALSE; /*The command is not found or the user don't have enough priority to run.*/
 }
 
+// since the forceFork is always true, don't understand why it's there.
 static void Exec(commandT* cmd, bool forceFork)
 {
+  int pid = fork();
+  int status;
+  if (pid == 0) {
+    execvp(cmd->argv[0], cmd->argv); 
+  } else {
+    waitpid(pid, &status, 0);
+  }
 }
 
 static int findBuiltIn(char* cmd)

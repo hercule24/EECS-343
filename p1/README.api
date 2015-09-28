@@ -2,7 +2,7 @@ Please consider the following commands for the implementation of your shell. Fee
 
 chdir
 close
-dup2
+dup2 - duplicate an existing file descriptor
 execv
 exit
 fork
@@ -17,14 +17,14 @@ memset
 open
 perror
 pipe
-setpgid
-siglongjmp
+setpgid - set process group
+siglongjmp - non-local jumps
 signal
-sigsetjmp
-stat
+sigsetjmp - non-local jumps
+stat - display file status
 strcat
 strcmp
 strcpy
-tcgetattr
-tcsetpgrp
+tcgetattr - manipulating the termios structure
+tcsetpgrp - set foreground process group ID
 waitpid

@@ -80,13 +80,6 @@ int main (int argc, char *argv[])
     /* read command line */
     getCommandLine(&cmdLine, BUFSIZE);
 
-    // handle end of line
-    if (strlen(cmdLine) == 0)
-    {
-      forceExit = TRUE;
-      continue;
-    }
-
     if(strcmp(cmdLine, "exit") == 0)
     {
       forceExit=TRUE;
