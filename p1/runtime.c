@@ -109,8 +109,9 @@ static int (*FUNCTION_POINTERS[]) (commandT *cmd) = {
 static int tsh_cd(commandT *cmd)
 {
   if (cmd->argc == 1) {
-    chdir("~");
+    chdir(getenv("HOME"));
   } else {
+    chdir(cmd->argv[1]);
   }
 
   return 0;
@@ -248,7 +249,9 @@ static void Exec(commandT* cmd, bool forceFork)
   if (pid == 0) {
     execvp(cmd->argv[0], cmd->argv); 
   } else {
-    waitpid(pid, &status, 0);
+    if (strcmp(cmd->argv[(cmd->argc)-1], "&") != 0) {
+      waitpid(pid, &status, 0);
+    }
   }
 }
 

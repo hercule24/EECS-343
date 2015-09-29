@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
+#include <unistd.h>
 
 /************Private include**********************************************/
 #include "tsh.h"
@@ -53,6 +54,7 @@
  */
 
 #define BUFSIZE 80
+#define DIRECTORY_LENGTH 256
 
 /************Global Variables*********************************************/
 
@@ -67,6 +69,7 @@ static void sig_handler(int);
 int main (int argc, char *argv[])
 {
   /* Initialize command buffer */
+  chdir(getenv("HOME"));
   char* cmdLine = malloc(sizeof(char*)*BUFSIZE);
 
   /* shell initialization */
@@ -75,8 +78,16 @@ int main (int argc, char *argv[])
 
   while (!forceExit) /* repeat forever */
   {
-    // This line should be removed when handin.
-    printf("tsh$ ");
+    /* This block should be commented out when handin. */
+    char buf[DIRECTORY_LENGTH];
+    getcwd(buf, DIRECTORY_LENGTH);
+    if (strcmp(buf, getenv("HOME")) == 0) {
+      printf("tsh:~ $ ");
+    } else {
+      printf("tsh:%s $ ", getcwd(buf, DIRECTORY_LENGTH));
+    }
+    /********************************************/
+
     /* read command line */
     getCommandLine(&cmdLine, BUFSIZE);
 
