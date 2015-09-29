@@ -61,6 +61,7 @@
 /************Function Prototypes******************************************/
 /* handles SIGINT and SIGSTOP signals */	
 static void sig_handler(int);
+static void sigchld_handler(int);
 
 /************External Declaration*****************************************/
 
@@ -75,6 +76,7 @@ int main (int argc, char *argv[])
   /* shell initialization */
   if (signal(SIGINT, sig_handler) == SIG_ERR) PrintPError("SIGINT");
   if (signal(SIGTSTP, sig_handler) == SIG_ERR) PrintPError("SIGTSTP");
+  if (signal(SIGCHLD, sigchld_handler) == SIG_ERR) PrintPError("SIGCHLD");
 
   while (!forceExit) /* repeat forever */
   {
@@ -113,5 +115,14 @@ int main (int argc, char *argv[])
 
 static void sig_handler(int signo)
 {
+}
+
+// reap zombie childe process
+// "-1" indicates it will wait for any child process,
+// Setting "WNOHANG" prevents this handler from blocking
+static void sigchld_handler(int signo)
+{
+  int status;
+  while (waitpid(-1, &status, WNOHANG) > 0) {}
 }
 

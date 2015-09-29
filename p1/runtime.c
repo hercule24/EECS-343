@@ -101,8 +101,8 @@ static const char *BuiltInCommands[] = {
  * array of function pointers
  */
 static int (*FUNCTION_POINTERS[]) (commandT *cmd) = {
-  &tsh_cd,
-  &tsh_echo
+  tsh_cd,
+  tsh_echo
 };
 
 /**************Implementation***********************************************/
@@ -249,7 +249,7 @@ static void Exec(commandT* cmd, bool forceFork)
   if (pid == 0) {
     execvp(cmd->argv[0], cmd->argv); 
   } else {
-    if (strcmp(cmd->argv[(cmd->argc)-1], "&") != 0) {
+    if (!cmd->bg) {
       waitpid(pid, &status, 0);
     }
   }
