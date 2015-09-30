@@ -55,8 +55,11 @@
 
 #define BUFSIZE 80
 #define DIRECTORY_LENGTH 256
+//head and tail for alias list
 
-/************Global Variables*********************************************/
+extern aliasL * head;
+extern aliasL * tail;
+/***********Global Variables*********************************************/
 
 /************Function Prototypes******************************************/
 /* handles SIGINT and SIGSTOP signals */	
@@ -105,10 +108,16 @@ int main (int argc, char *argv[])
     /* interpret command and line
      * includes executing of commands */
     Interpret(cmdLine);
-
   }
 
   /* shell termination */
+//free the alias list before closing the shell
+    while(head!=tail){
+	aliasL * node = head;
+	head = head->next;
+	free(node);
+    }
+    free(head);
   free(cmdLine);
   return 0;
 } /* end main */

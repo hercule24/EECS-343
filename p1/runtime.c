@@ -63,7 +63,6 @@
 /************Global Variables*********************************************/
 
 #define NBUILTINCOMMANDS (sizeof BuiltInCommands / sizeof(char*))
-
 typedef struct bgjob_l {
   pid_t pid;
   struct bgjob_l* next;
@@ -72,6 +71,9 @@ typedef struct bgjob_l {
 /* the pids of the background processes */
 bgjobL *bgjobs = NULL;
 
+/*alias list implemented by linked list*/
+aliasL* head;
+aliasL* tail;
 /************Function Prototypes******************************************/
 /* run command */
 static void RunCmdFork(commandT*, bool);
@@ -89,12 +91,17 @@ static int findBuiltIn(char*);
 static int tsh_cd(commandT *cmd);
 /* function for builtin echo */
 static int tsh_echo(commandT *cmd);
+/* function for builtin alias and unalias*/
+static int tsh_alias(commandT *cmd);
+static int tsh_unalias(commandT *cmd);
 /************External Declaration*****************************************/
 
 /************Constants for builtin commands******************************/
 static const char *BuiltInCommands[] = {
   "cd",
-  "echo"
+  "echo",
+  "alias",
+  "unalias"
 };
 
 /* 
@@ -102,7 +109,9 @@ static const char *BuiltInCommands[] = {
  */
 static int (*FUNCTION_POINTERS[]) (commandT *cmd) = {
   tsh_cd,
-  tsh_echo
+  tsh_echo,
+  tsh_alias,
+  tsh_unalias
 };
 
 /**************Implementation***********************************************/
@@ -133,7 +142,108 @@ static int tsh_echo(commandT *cmd)
   }
   return 0;
 }
-
+//alias and unalias implementation
+static int tsh_alias(commandT *cmd)
+{
+	aliasL* alias_list;
+	if(cmd->argc==1){
+	//print the alias list
+		alias_list = head;
+		while(alias_list){
+			printf("alias %s='%s'\n",alias_list->newname,
+					alias_list->oldname);
+			alias_list=alias_list->next;
+		}
+	}else if(cmd->argc==2){
+		//get the newname and oldname out of expression xxx='xx'
+		char* nname;
+		char* oname;
+		char* left;
+		nname = strtok(cmd->argv[1],"='");
+		oname = strtok(NULL,"'");
+		left = strtok(NULL,"");
+		if(left){
+			printf("invalid alias command\n");
+			return 0;
+		}
+		//whether nname is valid or not
+		if((strchr(nname, '='))||(strchr(nname,'$'))||(strchr(nname,'/')))
+		{
+			printf("invalid alias name\n");
+		}else
+		{
+		bool exist = FALSE;
+		//whether oname is an existing alias
+			alias_list= head;	
+			while(alias_list){
+				if(strcmp(oname,alias_list->newname)==0){
+					printf("You can't expand an existing alias.\n");
+					exist = TRUE;
+					break;
+				}
+				alias_list=alias_list->next;
+			}
+		//correct input, store the alias into list
+		if(!exist){
+			aliasL* node = malloc(sizeof(aliasL));
+			node->newname = nname;
+			node->oldname = oname;
+			node->next = NULL;
+			if(head==NULL){
+				head = node;
+				tail = node;
+			}else{
+				tail->next = node;
+				tail = node;
+			}	 			
+		}
+		}
+	}else {
+		printf("alias format: alias xxx='xx'\n");
+	}
+	return 0;
+}
+static int tsh_unalias(commandT *cmd)
+{
+	if(cmd->argc != 2){
+		printf("unalias format: unalias xxx\n");
+		return 0;
+	}else{
+		//search the list
+		char * name = cmd->argv[1];
+		if(head==NULL){
+			return 0;
+		}
+		aliasL * child = head;
+		aliasL * parent = head;
+		if(strcmp(head->newname,name)==0){
+			if(head == tail){
+				head = NULL;
+				tail = NULL;
+			}else{
+				head = head->next;
+			}
+			free(child);
+			return 0;
+		}else{
+			while(parent->next){
+				child = parent->next;
+				if(strcmp(child->newname,name)==0){
+					//remove form the list
+					parent->next=child->next;
+					if(child==tail){
+						tail = parent;
+					}
+					free(child);
+					return 0;
+				}
+				parent=child;
+			}
+		}
+	}
+	printf("unalias name not defined previously\n");
+	return 0;
+}
 int total_task;
 void RunCmd(commandT** cmd, int n)
 {
@@ -185,6 +295,16 @@ void RunCmdRedirIn(commandT* cmd, char* file)
 /*Try to run an external command*/
 static void RunExternalCmd(commandT* cmd, bool fork)
 {
+//unalias cmd to original if it is alias
+  char * name = cmd->argv[0];
+  aliasL * node = head;
+  while(node){
+	if(strcmp(node->newname,name)==0){
+		strcpy(cmd->argv[0], node->oldname); 
+	}
+	node = node->next;
+  }
+
   if (ResolveExternalCmd(cmd)){
     Exec(cmd, fork);
   }

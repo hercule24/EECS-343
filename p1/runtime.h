@@ -64,6 +64,11 @@ typedef struct command_t
   char* argv[];
 } commandT;
 
+typedef struct alias_l {
+	char* newname;
+	char* oldname;
+	struct alias_l * next;
+} aliasL;
 /************Global Variables*********************************************/
 
 /***********************************************************************
