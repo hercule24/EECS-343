@@ -159,10 +159,11 @@ static int tsh_alias(commandT *cmd)
 		char* nname;
 		char* oname;
 		char* left;
-		nname = strtok(cmd->argv[1],"='");
+		strtok(cmd->cmdline," ");
+		nname = strtok(NULL,"='");
 		oname = strtok(NULL,"'");
 		left = strtok(NULL,"");
-		if(left){
+		if(!oname||left){
 			printf("invalid alias command\n");
 			return 0;
 		}
@@ -295,16 +296,6 @@ void RunCmdRedirIn(commandT* cmd, char* file)
 /*Try to run an external command*/
 static void RunExternalCmd(commandT* cmd, bool fork)
 {
-//unalias cmd to original if it is alias
-  char * name = cmd->argv[0];
-  aliasL * node = head;
-  while(node){
-	if(strcmp(node->newname,name)==0){
-		strcpy(cmd->argv[0], node->oldname); 
-	}
-	node = node->next;
-  }
-
   if (ResolveExternalCmd(cmd)){
     Exec(cmd, fork);
   }

@@ -74,8 +74,7 @@ int main (int argc, char *argv[])
 {
   /* Initialize command buffer */
   chdir(getenv("HOME"));
-  char* cmdLine = malloc(sizeof(char*)*BUFSIZE);
-
+  char * cmdLine = malloc(sizeof(char*)*BUFSIZE);
   /* shell initialization */
   if (signal(SIGINT, sig_handler) == SIG_ERR) PrintPError("SIGINT");
   if (signal(SIGTSTP, sig_handler) == SIG_ERR) PrintPError("SIGTSTP");
@@ -94,7 +93,7 @@ int main (int argc, char *argv[])
     /********************************************/
 
     /* read command line */
-    getCommandLine(&cmdLine, BUFSIZE);
+    int size = getCommandLine(&cmdLine, BUFSIZE);
 
     if(strcmp(cmdLine, "exit") == 0)
     {
@@ -106,8 +105,38 @@ int main (int argc, char *argv[])
     CheckJobs();
 
     /* interpret command and line
-     * includes executing of commands */
-    Interpret(cmdLine);
+* includes executing of commands */
+	//de-aliasing
+        int len= strlen(cmdLine);
+	//get the first command before space
+	char * first = strtok(cmdLine, " ");
+	//look it up for alias
+	char * rfirst = "";
+	aliasL * node = head;
+	while(node){
+		if(strcmp(node->newname,first)==0){
+			rfirst = node->oldname;
+			break;
+		}
+		node = node->next;
+	}
+	//create an array to store the final command
+        char arr[strlen(rfirst) + size];
+	memset(arr,0,strlen(arr));
+	if(strlen(rfirst) != 0){
+		strcat(arr,rfirst);
+	}else{
+		strcat(arr,first);
+	}
+	if(strlen(first) != len){
+		strcat(arr, " ");
+		char * rest = strtok(NULL,"");
+		strcat(arr, rest);
+	}
+	//copy the array to heap
+        cmdLine =realloc(cmdLine,strlen(arr));
+	strcpy(cmdLine,arr);
+	Interpret(cmdLine);
   }
 
   /* shell termination */

@@ -99,7 +99,7 @@ EXTERN bool IsReading();
  *    Input: pointer to the buffer (will be resized as necessary) & size
  *    Output: void
  ***********************************************************************/
-EXTERN void getCommandLine(char**, int);
+EXTERN int getCommandLine(char**, int);
 
 /************External Declaration*****************************************/
 
