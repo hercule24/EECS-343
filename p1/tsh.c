@@ -106,8 +106,9 @@ int main (int argc, char *argv[])
 
     /* interpret command and line
 * includes executing of commands */
-	//de-aliasing
-        int len= strlen(cmdLine);
+	if(strlen(cmdLine)){
+	//de-aliasing when the cmdLine is not empty
+       int len= strlen(cmdLine);
 	//get the first command before space
 	char * first = strtok(cmdLine, " ");
 	//look it up for alias
@@ -136,6 +137,7 @@ int main (int argc, char *argv[])
 	//copy the array to heap
         cmdLine =realloc(cmdLine,strlen(arr));
 	strcpy(cmdLine,arr);
+	}
 	Interpret(cmdLine);
   }
 

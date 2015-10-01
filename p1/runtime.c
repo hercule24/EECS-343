@@ -94,6 +94,10 @@ static int tsh_echo(commandT *cmd);
 /* function for builtin alias and unalias*/
 static int tsh_alias(commandT *cmd);
 static int tsh_unalias(commandT *cmd);
+/*function for bg, jobs, fg*/
+static int tsh_bg(commandT *cmd);
+static int tsh_jobs(commandT *cmd);
+static int tsh_fg(commandT *cmd);
 /************External Declaration*****************************************/
 
 /************Constants for builtin commands******************************/
@@ -101,7 +105,10 @@ static const char *BuiltInCommands[] = {
   "cd",
   "echo",
   "alias",
-  "unalias"
+  "unalias",
+  "bg",
+  "jobs",
+  "fg"
 };
 
 /* 
@@ -111,7 +118,10 @@ static int (*FUNCTION_POINTERS[]) (commandT *cmd) = {
   tsh_cd,
   tsh_echo,
   tsh_alias,
-  tsh_unalias
+  tsh_unalias,
+  tsh_bg,
+  tsh_jobs,
+  tsh_fg
 };
 
 /**************Implementation***********************************************/
@@ -261,6 +271,20 @@ static int tsh_unalias(commandT *cmd)
 	printf("unalias name not defined previously\n");
 	return 0;
 }
+
+
+static int tsh_bg(commandT *cmd){
+	return 0;
+}
+
+static int tsh_jobs(commandT *cmd){
+	return 0;
+}
+
+static int tsh_fg(commandT *cmd){
+	return 0;
+}
+
 int total_task;
 void RunCmd(commandT** cmd, int n)
 {
