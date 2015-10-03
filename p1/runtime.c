@@ -398,6 +398,26 @@ static void Exec(commandT* cmd, bool forceFork)
   int pid = fork();
   int status;
   if (pid == 0) {
+    // redirect out
+    int out_fd;
+    if (cmd->is_redirect_out) {
+      close(STDOUT_FILENO);
+      // 0644 is to grant the owner of the process read, and write permission.
+      // When specifying O_CREAT, you need to provide this mode as chmod does.
+      out_fd = open(cmd->redirect_out, O_CREAT | O_WRONLY, 0644);
+      dup(out_fd);
+    }
+    
+    // redirect in
+    int in_fd;
+    if (cmd->is_redirect_in) {
+      close(STDIN_FILENO);
+      if ((in_fd = open(cmd->redirect_in, O_RDONLY)) == -1) {
+        PrintPError(NULL);
+      }
+      dup(in_fd);
+    }
+
     execvp(cmd->argv[0], cmd->argv); 
   } else {
     if (!cmd->bg) {
