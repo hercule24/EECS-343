@@ -289,11 +289,22 @@ int total_task;
 void RunCmd(commandT** cmd, int n)
 {
   int i;
+  bool last;
   total_task = n;
   if(n == 1)
     RunCmdFork(cmd[0], TRUE);
   else{
-    RunCmdPipe(cmd[0], cmd[1]);
+//remove the limit of # pipes
+  for(i=0;i<n-1;i++){
+	  //if not the last command, run it in next loop
+	if(i!=n-2){
+		last = FALSE;
+	}else{
+		last = TRUE;
+	}
+	RunCmdPipe(cmd[i],cmd[i+1], last);
+	
+  }
     for(i = 0; i < n; i++)
       ReleaseCmdT(&cmd[i]);
   }
@@ -320,8 +331,31 @@ void RunCmdBg(commandT* cmd)
   // TODO
 }
 
-void RunCmdPipe(commandT* cmd1, commandT* cmd2)
+void RunCmdPipe(commandT* cmd1, commandT* cmd2, bool last)
 {
+	int status;
+	int pid = fork(),pid1;
+	if(pid==0){
+		int p[2];
+		pipe(p);
+		pid1 = fork();
+		if(pid1 == 0){
+		//replace stdin
+		dup2(p[0],0);
+		close(p[1]);
+		if(last){
+			execvp(cmd2->argv[0], cmd2->argv);
+		}
+		}else{
+			//replace stdout
+			dup2(p[1],1);
+			close(p[0]);
+			execvp(cmd1->argv[0], cmd1->argv);
+			waitpid(pid1,&status,0);
+		}
+	}else{
+		waitpid(pid, &status,0);
+	}
 }
 
 void RunCmdRedirOut(commandT* cmd, char* file)
