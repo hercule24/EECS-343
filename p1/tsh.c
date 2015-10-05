@@ -115,24 +115,31 @@ int main (int argc, char *argv[])
 	//get the first command before space
 	char * first = strtok(cmdLine, " ");
 	//look it up for alias
-	char * rfirst ="";
+	//char * rfirst ="";
+	char * rfirst = (char *)malloc(256);
 	aliasL * node = head;
 	while(node){
 		if(strcmp(node->newname,first)==0){
-			//printf("%s\n",node->oldname);
-			//strcat(rfirst,node->oldname);
-			//printf("%s",rfirst);
-			rfirst = node->oldname;
-			//printf("%s,%d,%c",rfirst,strlen(rfirst),rfirst[0]);
-			//if(rfirst[strlen(rfirst)-1] == ' '||(rfirst[strlen(rfirst)-1]=='t'&&rfirst[strlen(rfirst)-2]=='\\')){
-			//	first = strtok(NULL, " ");
-			//	printf("f: %s\n",first);
-			//	node = head;
-			//	strcat(rfirst," ");
-			//	continue;
-			//}else{
+			printf("oldname=%s\n",node->oldname);
+			printf("rfirst=%s\n",rfirst);
+			strcat(rfirst,node->oldname);
+			printf("nrfirst=%s\n",rfirst);
+			//rfirst = node->oldname;
+			int lr=strlen(rfirst);
+			printf("rfirst=%s,len=%d,[0]=%c\n",rfirst,lr,rfirst[0]);
+			
+			printf("r[0]=%c\n",rfirst[0]);
+			printf("r[len-1]=%c\n",rfirst[lr-1]);
+			printf("r[len-2]=%c",rfirst[lr-2]);
+			if(rfirst[lr-1] == ' ' || (rfirst[lr-1]=='t'&&rfirst[lr-2]=='\\')){
+				first = strtok(NULL, " ");
+				printf("first=: %s\n",first);
+				node = head;
+				//strcat(rfirst," ");
+				continue;
+			}else{
 				break;
-			//}
+			}
 		}
 		node = node->next;
 	}
