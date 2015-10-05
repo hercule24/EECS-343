@@ -56,6 +56,7 @@
 #define BUFSIZE 80
 #define DIRECTORY_LENGTH 256
 //head and tail for alias list
+EXTERN Job* jobListHead;
 
 extern aliasL * head;
 extern aliasL * tail;
@@ -175,6 +176,20 @@ static void sig_handler(int signo)
 static void sigchld_handler(int signo)
 {
   int status;
-  while (waitpid(-1, &status, WNOHANG) > 0) {}
+  pid_t pid;
+  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    // if normally exited.
+    if (WIFEXITED(status)) {
+      Job *head = jobListHead;
+      while (head != NULL) {
+        if (head->pgid == pid) {
+          //printf("pid = %d\n", pid);
+          head->state = 2;
+          break;
+        }
+        head = head->next;
+      }
+    }
+  }
 }
 

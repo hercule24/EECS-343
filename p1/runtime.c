@@ -63,13 +63,8 @@
 /************Global Variables*********************************************/
 
 #define NBUILTINCOMMANDS (sizeof BuiltInCommands / sizeof(char*))
-typedef struct bgjob_l {
-  pid_t pid;
-  struct bgjob_l* next;
-} bgjobL;
-
-/* the pids of the background processes */
-bgjobL *bgjobs = NULL;
+Job *jobListHead = NULL;
+int nextJobId = 0;
 
 /*alias list implemented by linked list*/
 aliasL* head;
@@ -98,6 +93,10 @@ static int tsh_unalias(commandT *cmd);
 static int tsh_bg(commandT *cmd);
 static int tsh_jobs(commandT *cmd);
 static int tsh_fg(commandT *cmd);
+/* function for add to job list */
+void addToBgList(Job *job);
+/* function for removing from job list */
+void removeFromJobList(pid_t pid);
 /************External Declaration*****************************************/
 
 /************Constants for builtin commands******************************/
@@ -299,6 +298,36 @@ static int tsh_fg(commandT *cmd){
 	return 0;
 }
 
+static int tsh_bg(commandT *cmd)
+{
+  Job *p = jobListHead;
+  if (p == NULL) {
+    printf("bg: no current job\n");
+  }
+  if (cmd->argc == 1) {
+    while (p != NULL) {
+      // if it is stopped
+      if (p->state == 1) {
+        // make it running
+        p->state = 0;
+        p->cmd->bg = 1;
+        kill(-(p->pgid), SIGCONT);
+      }  
+      p = p->next;
+    }
+  } else {
+
+  }
+
+  return 0;
+}
+
+static int tsh_jobs(commandT *cmd){
+}
+
+static int tsh_fg(commandT *cmd){
+}
+
 int total_task;
 void RunCmd(commandT** cmd, int n)
 {
@@ -470,6 +499,16 @@ static void Exec(commandT* cmd, bool forceFork)
   } else {
     if (!cmd->bg) {
       waitpid(pid, &status, 0);
+    } else {
+      printf("[%d] %d\n", nextJobId, pid);
+      Job *job = (Job *) malloc(sizeof(Job));
+      job->jobId = nextJobId;
+      job->pgid = pid;
+      job->next = NULL;
+      job->cmd = cmd;
+      job->state = 0;
+      addToBgList(job);
+      nextJobId++;
     }
   }
 }
@@ -485,6 +524,49 @@ static int findBuiltIn(char* cmd)
   return -1;
 }
 
+void addToBgList(Job *job)
+{
+  if (jobListHead == NULL) {
+    jobListHead = job;
+  } else {
+    Job *temp = jobListHead->next;
+    jobListHead = job;
+    job->next = temp;
+  }
+}
+
+void removeFromJobList(pid_t pid)
+{
+  // no job
+  if (jobListHead == NULL) {
+    return;
+  }
+
+  // only one job
+  if (jobListHead->next == NULL) {
+    if (jobListHead->pgid == pid) {
+      free(jobListHead);
+      jobListHead = NULL;
+      return;
+    }
+  }
+
+  Job *p = jobListHead;
+
+  // at lease two jobs
+  while (p->next != NULL) {
+    Job *next = p->next;
+    if (next->pgid == pid) {
+      Job *next_next = next->next;
+      p->next = next_next;
+      free(next);
+      return;
+    } else {
+      p = p->next;
+    }
+  }
+}
+
 
 static void RunBuiltInCmd(commandT* cmd, int index)
 {
@@ -493,6 +575,37 @@ static void RunBuiltInCmd(commandT* cmd, int index)
 
 void CheckJobs()
 {
+  // printf("At the very beginning of CheckJobs\n"); 
+  if (jobListHead == NULL) {
+    return;
+  }
+
+  if (jobListHead->next == NULL) {
+    if (jobListHead->state == 2) {
+      // printf("inside CheckJobs \n");
+      printf("[%d]\tDone\t\t\t\t\t%s\n", jobListHead->jobId, jobListHead->cmd->name);
+      free(jobListHead);
+      jobListHead = NULL;
+      return;
+    } else {
+      //printf("state = %d\n", jobListHead->state);
+      //printf("inside else CheckJobs \n");
+    }
+  }
+
+  Job *p = jobListHead;
+
+  // at leasst two jobs
+  while (p != NULL) {
+    Job *next = p->next;
+    if (next != NULL && next->state == 2) {
+      Job *next_next = next->next;
+      p->next = next_next;
+      printf("[%d]\tDone\t\t\t\t\t%s\n", next->jobId, next->cmd->name);
+      free(next);
+    }
+    p = p->next;
+  }
 }
 
 

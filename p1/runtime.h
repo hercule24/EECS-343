@@ -59,6 +59,8 @@ typedef struct command_t
   char *cmdline;
   char *redirect_in, *redirect_out;
   int is_redirect_in, is_redirect_out;
+  // bg = 0, foreground
+  // bg = 1, background
   int bg;
   int argc;
   char* argv[];
@@ -69,6 +71,19 @@ typedef struct alias_l {
 	char* oldname;
 	struct alias_l * next;
 } aliasL;
+
+typedef struct job
+{
+  int jobId;
+  int pgid;
+  struct job *next;
+  commandT* cmd;
+  // 0: running
+  // 1: stopped
+  // 2: terminated
+  int state;
+} Job;
+
 /************Global Variables*********************************************/
 
 /***********************************************************************
