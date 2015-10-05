@@ -112,12 +112,24 @@ int main (int argc, char *argv[])
 	//get the first command before space
 	char * first = strtok(cmdLine, " ");
 	//look it up for alias
-	char * rfirst = "";
+	char * rfirst ="";
 	aliasL * node = head;
 	while(node){
 		if(strcmp(node->newname,first)==0){
+			//printf("%s\n",node->oldname);
+			//strcat(rfirst,node->oldname);
+			//printf("%s",rfirst);
 			rfirst = node->oldname;
-			break;
+			//printf("%s,%d,%c",rfirst,strlen(rfirst),rfirst[0]);
+			//if(rfirst[strlen(rfirst)-1] == ' '||(rfirst[strlen(rfirst)-1]=='t'&&rfirst[strlen(rfirst)-2]=='\\')){
+			//	first = strtok(NULL, " ");
+			//	printf("f: %s\n",first);
+			//	node = head;
+			//	strcat(rfirst," ");
+			//	continue;
+			//}else{
+				break;
+			//}
 		}
 		node = node->next;
 	}

@@ -166,18 +166,29 @@ static int tsh_alias(commandT *cmd)
 		}
 	}else if(cmd->argc==2){
 		//get the newname and oldname out of expression xxx='xx'
-		char* nname;
-		char* oname;
-		char* left;
+		char* nname = NULL;
+		char* oname = NULL;
+		char* left = NULL;
 		if(strstr(cmd->cmdline,"='")){
 			strtok(cmd->cmdline," ");
 			nname = strtok(NULL,"='");
-			oname = strtok(NULL,"'");
+			oname = strtok(NULL,"");
+			oname++;
+			if(strchr(oname,'\'')){
+				oname = strtok(oname,"\'");
+			}else{
+				oname = NULL;
+			}
 			left = strtok(NULL,"");
-		}else{
+		}else if(strstr(cmd->cmdline,"=\"")){
 			strtok(cmd->cmdline," ");
-			nname = strtok(NULL,"=\"");
-			oname = strtok(NULL,"\"");
+			nname = strtok(NULL,"='");
+			oname++;
+			if(strchr(oname,'\"')){
+			oname = strtok(oname,"\"");
+			}else{
+				oname = NULL;
+			}
 			left = strtok(NULL,"");
 		}
 		if(!oname||left){
@@ -190,7 +201,7 @@ static int tsh_alias(commandT *cmd)
 			printf("invalid alias name\n");
 		}else
 		{
-		bool exist = FALSE;
+		bool exist = FALSE,upd=FALSE;
 		aliasL * update;
 		//whether oname or nname is an existing alias
 			alias_list= head;	
@@ -202,15 +213,18 @@ static int tsh_alias(commandT *cmd)
 				}
 				if(strcmp(nname,alias_list->newname)==0){
 					update  = alias_list;
+					upd = TRUE;
 				}
 				alias_list=alias_list->next;
 			}
 		//correct input, store the alias into list
 		if(!exist){
 			//update the oldvalue if redefining the newvalue
-			if(update){
+			if(upd){
 				update->oldname = oname;	
 			}else{
+			char * sd = "";
+			printf("%s",sd);
 			aliasL* node = malloc(sizeof(aliasL));
 			node->newname = nname;
 			node->oldname = oname;
