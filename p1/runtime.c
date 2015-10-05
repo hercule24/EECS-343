@@ -285,19 +285,6 @@ static int tsh_unalias(commandT *cmd)
 	return 0;
 }
 
-
-static int tsh_bg(commandT *cmd){
-	return 0;
-}
-
-static int tsh_jobs(commandT *cmd){
-	return 0;
-}
-
-static int tsh_fg(commandT *cmd){
-	return 0;
-}
-
 static int tsh_bg(commandT *cmd)
 {
   Job *p = jobListHead;
@@ -322,10 +309,14 @@ static int tsh_bg(commandT *cmd)
   return 0;
 }
 
-static int tsh_jobs(commandT *cmd){
+static int tsh_jobs(commandT *cmd)
+{
+	return 0;
 }
 
-static int tsh_fg(commandT *cmd){
+static int tsh_fg(commandT *cmd)
+{
+	return 0;
 }
 
 int total_task;
