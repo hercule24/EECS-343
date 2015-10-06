@@ -66,9 +66,11 @@ extern aliasL * tail;
 
 /************Function Prototypes******************************************/
 /* handles SIGINT and SIGSTOP signals */	
-static void sig_handler(int);
-static void sigchld_handler(int);
-static char * alias_handler(char*,char*, int);
+static void sigint_handler(int);
+static void sigtstp_handler(int);
+
+static void reapZombies();
+static char *alias_handler(char*,char*, int);
 
 /************External Declaration*****************************************/
 
@@ -81,9 +83,8 @@ int main (int argc, char *argv[])
   char * cmdLine = malloc(sizeof(char*)*BUFSIZE);
 	char * rfirst = (char *)malloc(256);
   /* shell initialization */
-  if (signal(SIGINT, sig_handler) == SIG_ERR) PrintPError("SIGINT");
-  if (signal(SIGTSTP, sig_handler) == SIG_ERR) PrintPError("SIGTSTP");
-  if (signal(SIGCHLD, sigchld_handler) == SIG_ERR) PrintPError("SIGCHLD");
+  if (signal(SIGINT, sigint_handler) == SIG_ERR) PrintPError("SIGINT");
+  if (signal(SIGTSTP, sigtstp_handler) == SIG_ERR) PrintPError("SIGTSTP");
 
   while (!forceExit) /* repeat forever */
   {
@@ -96,6 +97,8 @@ int main (int argc, char *argv[])
       printf("tsh:%s $ ", getcwd(buf, DIRECTORY_LENGTH));
     }
     /********************************************/
+
+    reapZombies();
 
     /* read command line */
     int size = getCommandLine(&cmdLine, BUFSIZE);
@@ -127,14 +130,19 @@ int main (int argc, char *argv[])
   return 0;
 } /* end main */
 
-static void sig_handler(int signo)
+static void sigint_handler(int signo)
 {
+}
+
+static void sigtstp_handler(int signo)
+{
+
 }
 
 // reap zombie childe process
 // "-1" indicates it will wait for any child process,
 // Setting "WNOHANG" prevents this handler from blocking
-static void sigchld_handler(int signo)
+static void reapZombies()
 {
   int status;
   pid_t pid;

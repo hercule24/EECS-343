@@ -77,6 +77,7 @@ typedef struct job
   int jobId;
   int pgid;
   struct job *next;
+  struct job* pre;
   commandT* cmd;
   // 0: running
   // 1: stopped
