@@ -325,9 +325,9 @@ void RunCmd(commandT** cmd, int n)
   int i;
   bool last;
   total_task = n;
-  if(n == 1)
+  if(n == 1){
     RunCmdFork(cmd[0], TRUE);
-  else{
+  }else{
 //remove the limit of # pipes
   for(i=0;i<n-1;i++){
 	  //if not the last command, run it in next loop
@@ -421,7 +421,6 @@ static bool ResolveExternalCmd(commandT* cmd)
   char buf[1024];
   int i, j;
   struct stat fs;
-
   if(strchr(cmd->argv[0],'/') != NULL){
     if(stat(cmd->argv[0], &fs) >= 0){
       if(S_ISDIR(fs.st_mode) == 0)

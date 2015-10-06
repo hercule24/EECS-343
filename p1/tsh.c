@@ -68,6 +68,7 @@ extern aliasL * tail;
 /* handles SIGINT and SIGSTOP signals */	
 static void sig_handler(int);
 static void sigchld_handler(int);
+static char * alias_handler(char*,char*, int);
 
 /************External Declaration*****************************************/
 
@@ -78,6 +79,7 @@ int main (int argc, char *argv[])
   /* Initialize command buffer */
   chdir(getenv("HOME"));
   char * cmdLine = malloc(sizeof(char*)*BUFSIZE);
+	char * rfirst = (char *)malloc(256);
   /* shell initialization */
   if (signal(SIGINT, sig_handler) == SIG_ERR) PrintPError("SIGINT");
   if (signal(SIGTSTP, sig_handler) == SIG_ERR) PrintPError("SIGTSTP");
@@ -109,58 +111,7 @@ int main (int argc, char *argv[])
 
     /* interpret command and line
 * includes executing of commands */
-	if(strlen(cmdLine)){
-	//de-aliasing when the cmdLine is not empty
-       int len= strlen(cmdLine);
-	//get the first command before space
-	char * first = strtok(cmdLine, " ");
-	//look it up for alias
-	//char * rfirst ="";
-	char * rfirst = (char *)malloc(256);
-	aliasL * node = head;
-	while(node){
-		if(strcmp(node->newname,first)==0){
-			printf("oldname=%s\n",node->oldname);
-			printf("rfirst=%s\n",rfirst);
-			strcat(rfirst,node->oldname);
-			printf("nrfirst=%s\n",rfirst);
-			//rfirst = node->oldname;
-			int lr=strlen(rfirst);
-			printf("rfirst=%s,len=%d,[0]=%c\n",rfirst,lr,rfirst[0]);
-			
-			printf("r[0]=%c\n",rfirst[0]);
-			printf("r[len-1]=%c\n",rfirst[lr-1]);
-			printf("r[len-2]=%c",rfirst[lr-2]);
-			if(rfirst[lr-1] == ' ' || (rfirst[lr-1]=='t'&&rfirst[lr-2]=='\\')){
-				first = strtok(NULL, " ");
-				printf("first=: %s\n",first);
-				node = head;
-				//strcat(rfirst," ");
-				continue;
-			}else{
-				break;
-			}
-		}
-		node = node->next;
-	}
-	//create an array to store the final command
-        char arr[strlen(rfirst) + size];
-	memset(arr,0,strlen(arr));
-	if(strlen(rfirst) != 0){
-		strcat(arr,rfirst);
-	}else{
-		strcat(arr,first);
-	}
-	if(strlen(first) != len){
-		strcat(arr, " ");
-		char * rest = strtok(NULL,"");
-		strcat(arr, rest);
-	}
-	//copy the array to heap
-        cmdLine =realloc(cmdLine,strlen(arr));
-	strcpy(cmdLine,arr);
-	}
-	Interpret(cmdLine);
+    Interpret(alias_handler(rfirst,cmdLine,size));
   }
 
   /* shell termination */
@@ -172,6 +123,7 @@ int main (int argc, char *argv[])
     }
     free(head);
   free(cmdLine);
+	free(rfirst);
   return 0;
 } /* end main */
 
@@ -201,4 +153,47 @@ static void sigchld_handler(int signo)
     }
   }
 }
-
+static char * alias_handler(char * rfirst,char * cmdLine, int size){
+  if(strlen(cmdLine)){
+  //de-aliasing when the cmdLine is not empty
+     int len= strlen(cmdLine);
+      //get the first command before space
+      char * first = strtok(cmdLine, " ");
+      //look it up for alias
+      aliasL * node = head;
+      while(node){
+        if(strcmp(node->newname,first)==0){
+          strcat(rfirst,node->oldname);
+          int lr=strlen(rfirst);
+          if(rfirst[lr-1] == ' ' || (rfirst[lr-1]=='t'&&rfirst[lr-2]=='\\')){
+            first = strtok(NULL, " ");
+            if(first ==NULL){
+              break;
+            }
+            node = head;
+            continue;
+          }else{
+            break;
+          }
+        }
+        node = node->next;
+      }
+      //create an array to store the final command
+        char *arr=(char *)malloc(strlen(rfirst)+size);
+	if(strlen(rfirst) != 0){
+	  strcat(arr,rfirst);
+	}else{
+	  strcat(arr,first);
+	}
+        first = strtok(NULL,"");
+	if(first != NULL){
+          strcat(arr, " ");
+	  strcat(arr, first);
+	}
+	//copy the array to heap
+    cmdLine =realloc(cmdLine,strlen(arr));
+    strcpy(cmdLine,arr);
+    free(arr);
+  }
+  return cmdLine;
+}
