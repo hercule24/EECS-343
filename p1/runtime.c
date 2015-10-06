@@ -144,7 +144,8 @@ static int tsh_echo(commandT *cmd)
   if (cmd->argc == 1) {
     printf("\n");
   } else {
-    for (int i = 1; i < cmd->argc; i++) {
+    int i;
+    for (i = 1; i < cmd->argc; i++) {
       printf("%s", cmd->argv[i]);
       if (i != cmd->argc - 1) {
         printf(" ");
@@ -293,23 +294,33 @@ static int tsh_bg(commandT *cmd)
   Job *p = jobListHead;
   if (p == NULL) {
     printf("bg: no current job\n");
+    return -1;
   }
   if (cmd->argc == 1) {
     while (p != NULL) {
       // if it is stopped
-      if (p->state == 1) {
+      if (p->state == STOPPED) {
         // make it running
-        p->state = 0;
-        p->cmd->bg = 1;
+        p->state = RUNNING;
+        p->cmd->bg = BACKGROUND;
         kill(-(p->pgid), SIGCONT);
+        return 0;
       }  
       p = p->next;
     }
   } else {
-
+    while (p != NULL) {
+      if (p->jobId == atoi(cmd->argv[1])) {
+        if (p->state == STOPPED) {
+          p->state = RUNNING;
+          p->cmd->bg = BACKGROUND;
+          kill(-(p->pgid), SIGCONT);
+          return 0;
+        }
+      }
+      p = p->next;
+    }
   }
-
-  return 0;
 }
 
 static int tsh_jobs(commandT *cmd)
@@ -326,7 +337,47 @@ static int tsh_jobs(commandT *cmd)
 
 static int tsh_fg(commandT *cmd)
 {
-	return 0;
+  Job *p = jobListHead;
+  if (p == NULL) {
+    printf("fg: current: no such job\n");
+    return -1;
+  }
+
+  int status;
+  pid_t pid;
+  if (cmd->argc == 1) {
+    // first bring stopped process to foreground
+    while (p != NULL) {
+      if (p->state == STOPPED) {
+        pid = p->pgid;
+        kill(-pid, SIGCONT);
+        removeFromJobList(pid);
+        waitpid(-pid, &status, 0);
+        return 0;
+      }
+      p = p->next;
+    }
+
+    // if there is none, then background running process
+    p = jobListHead;
+    pid = p->pgid;
+    removeFromJobList(pid);
+    waitpid(-pid, &status, 0);
+    return 0;
+  } else {
+    while (p != NULL) {
+      if (p->jobId == atoi(cmd->argv[1])) {
+        pid = p->pgid;
+        if (p->state == STOPPED) {
+          kill(-pid, SIGCONT);
+        }
+        removeFromJobList(pid);
+        waitpid(-pid, &status, 0);
+        return 0;
+      }
+      p = p->next;
+    }
+  }
 }
 
 int total_task;
@@ -475,6 +526,7 @@ static void Exec(commandT* cmd, bool forceFork)
   int pid = fork();
   int status;
   if (pid == 0) {
+    setpgid(0, 0);
     // redirect out
     int out_fd;
     if (cmd->is_redirect_out) {
@@ -497,7 +549,7 @@ static void Exec(commandT* cmd, bool forceFork)
 
     execvp(cmd->argv[0], cmd->argv); 
   } else {
-    if (!cmd->bg) {
+    if (cmd->bg == FOREGROUND) {
       waitpid(pid, &status, 0);
     } else {
       printf("[%d] %d\n", nextJobId, pid);
@@ -516,7 +568,8 @@ static void Exec(commandT* cmd, bool forceFork)
 
 static int findBuiltIn(char* cmd)
 {
-  for (int i = 0; i < NBUILTINCOMMANDS; i++) {
+  int i;
+  for (i = 0; i < NBUILTINCOMMANDS; i++) {
     if (strcmp(cmd, BuiltInCommands[i]) == 0) {
       return i;
     }

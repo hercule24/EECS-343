@@ -60,6 +60,9 @@
 //head and tail for alias list
 EXTERN Job* jobListHead;
 
+sigset_t mask;
+sigset_t old_mask;
+
 extern aliasL * head;
 extern aliasL * tail;
 /***********Global Variables*********************************************/
@@ -68,9 +71,13 @@ extern aliasL * tail;
 /* handles SIGINT and SIGSTOP signals */	
 static void sigint_handler(int);
 static void sigtstp_handler(int);
+static void sigchld_handler(int);
 
 static void reapZombies();
 static char *alias_handler(char*,char*, int);
+
+static void block_signals(int signo);
+static void unblock_signals();
 
 /************External Declaration*****************************************/
 
@@ -85,6 +92,7 @@ int main (int argc, char *argv[])
   /* shell initialization */
   if (signal(SIGINT, sigint_handler) == SIG_ERR) PrintPError("SIGINT");
   if (signal(SIGTSTP, sigtstp_handler) == SIG_ERR) PrintPError("SIGTSTP");
+  if (signal(SIGCHLD, sigchld_handler) == SIG_ERR) PrintPError("SIGCHLD");
 
   while (!forceExit) /* repeat forever */
   {
@@ -98,10 +106,12 @@ int main (int argc, char *argv[])
     }
     /********************************************/
 
-    reapZombies();
+    //reapZombies();
 
     /* read command line */
+    block_signals(SIGCHLD);
     int size = getCommandLine(&cmdLine, BUFSIZE);
+    unblock_signals();
 
     if(strcmp(cmdLine, "exit") == 0)
     {
@@ -118,25 +128,28 @@ int main (int argc, char *argv[])
   }
 
   /* shell termination */
-//free the alias list before closing the shell
-    while(head!=tail){
-	aliasL * node = head;
-	head = head->next;
-	free(node);
-    }
-    free(head);
+  //free the alias list before closing the shell
+  while(head!=tail){
+    aliasL * node = head;
+    head = head->next;
+    free(node);
+  }
+  free(head);
   free(cmdLine);
-	free(rfirst);
+  free(rfirst);
   return 0;
 } /* end main */
 
 static void sigint_handler(int signo)
 {
+  if (signo == SIGINT) {
+  }
 }
 
 static void sigtstp_handler(int signo)
 {
-
+  if (signo == SIGTSTP) {
+  }
 }
 
 // reap zombie childe process
@@ -161,6 +174,29 @@ static void reapZombies()
     }
   }
 }
+
+static void sigchld_handler(int signo)
+{
+  if (signo == SIGCHLD) {
+    int status;
+    pid_t pid;
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+      // if normally exited.
+      if (WIFEXITED(status)) {
+        Job *head = jobListHead;
+        while (head != NULL) {
+          if (head->pgid == pid) {
+            //printf("pid = %d\n", pid);
+            head->state = 2;
+            break;
+          }
+          head = head->next;
+        }
+      }
+    }
+  }
+}
+
 static char * alias_handler(char * rfirst,char * cmdLine, int size){
   if(strlen(cmdLine)){
   //de-aliasing when the cmdLine is not empty
@@ -204,4 +240,16 @@ static char * alias_handler(char * rfirst,char * cmdLine, int size){
     free(arr);
   }
   return cmdLine;
+}
+
+static void block_signals(int signo)
+{
+  sigemptyset(&mask);
+  sigaddset(&mask, signo);
+  if (sigprocmask(SIG_BLOCK, &mask, &old_mask) < 0) PrintPError("sigprocmask error");
+}
+
+static void unblock_signals()
+{
+  if (sigprocmask(SIG_SETMASK, &old_mask, NULL) < 0) PrintPError("sigprocmask error");
 }
