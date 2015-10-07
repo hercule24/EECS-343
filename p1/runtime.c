@@ -252,9 +252,35 @@ static int tsh_alias(commandT *cmd)
 			if(head==NULL){
 				head = node;
 				tail = node;
+			}else if(strcmp(node->newname,head->newname)<0){
+				node->next = head;
+				head = node;
 			}else{
-				tail->next = node;
-				tail = node;
+				aliasL* par;
+				aliasL* cur;
+				cur = head->next;
+				par = head;
+				if(cur == NULL){
+					tail->next = node;
+					tail = node;
+				}else{
+					while(1){
+						if(strcmp(node->newname,cur->newname)<0){
+							par->next = node;
+							node->next = cur;
+							break;
+						}else{
+							par = cur;
+							cur = cur->next;
+							if(cur == NULL){
+								tail->next = node;
+								tail = node;
+								break;
+							}
+						}
+					}
+				
+				}
 			}	 			
 			}
 		}
