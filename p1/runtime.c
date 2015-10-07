@@ -573,7 +573,7 @@ static void Exec(commandT* cmd, bool forceFork)
       waitFg(pid);
       tcsetpgrp(STDOUT_FILENO, getpid());
     } else {
-      //printf("[%d] %d\n", nextJobId, pid);
+      // printf("[%d] %d\n", nextJobId, pid);
       Job *job = (Job *) malloc(sizeof(Job));
       job->jobId = nextJobId;
       job->pgid = pid;

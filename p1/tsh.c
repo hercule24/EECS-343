@@ -155,13 +155,12 @@ static void sigchld_handler(int signo)
     int status;
     pid_t pid;
     // check for exit, stopped
-    while ((pid = waitpid(-1, &status, WNOHANG) > 0)) {
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
       // if normally exited.
       if (WIFEXITED(status)) {
         Job *head = jobListHead;
         while (head != NULL) {
           if (head->pgid == pid) {
-            //printf("pid = %d\n", pid);
             head->state = TERMINATED;
             break;
           }
