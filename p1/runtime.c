@@ -427,8 +427,7 @@ void RunCmd(commandT** cmd, int n)
 	}else{
 		last = TRUE;
 	}
-	RunCmdPipe(cmd[i],cmd[i+1], last);
-	
+	RunCmdPipe(cmd[i],cmd[i+1], last);	
   }
     for(i = 0; i < n; i++)
       ReleaseCmdT(&cmd[i]);
@@ -461,6 +460,7 @@ void RunCmdPipe(commandT* cmd1, commandT* cmd2, bool last)
 {
 	//printf("inside pipe,cmd1=%s,cmd2=%s\n",cmd1->name,cmd2->name);
 	int pid = fork(),pid1;
+        int status;
 	if(pid==0){
 		int p[2];
 		pipe(p);
@@ -471,16 +471,17 @@ void RunCmdPipe(commandT* cmd1, commandT* cmd2, bool last)
 		close(p[1]);
 		if(last){
 			execvp(cmd2->argv[0], cmd2->argv);
+                        printf("");
 		}
 		}else{
 			//replace stdout
 			dup2(p[1],1);
 			close(p[0]);
 			execvp(cmd1->argv[0], cmd1->argv);
-                        waitFg(pid1);
+                        waitpid(pid1, &status, 0);
 		}
 	}else{
-          waitFg(pid);
+          waitpid(pid, &status, 0);
 	}
 }
 

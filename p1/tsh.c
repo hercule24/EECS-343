@@ -97,6 +97,7 @@ int main (int argc, char *argv[])
   {
     fflush(stdout);
     /* This block should be commented out when handin. */
+    fflush(stdout);
     char buf[DIRECTORY_LENGTH];
     getcwd(buf, DIRECTORY_LENGTH);
     if (strcmp(buf, getenv("HOME")) == 0) {
@@ -216,9 +217,9 @@ static char * alias_handler(char * oldcmd, char * cmdLine){
       //create an array to store the final command
         char *arr=(char *)malloc(strlen(rfirst)+ size);
 	if(strlen(rfirst) != 0){
-	  strcat(arr,rfirst);
+	  strcpy(arr,rfirst);
 	}else{
-	  strcat(arr,first);
+	  strcpy(arr,first);
 	}
         first = strtok(NULL,"");
 	if(first != NULL){
@@ -227,6 +228,7 @@ static char * alias_handler(char * oldcmd, char * cmdLine){
 	}
 	//copy the array to heap
     cmdLine =realloc(cmdLine,strlen(arr));
+    memset(cmdLine,0,strlen(cmdLine));
     strcpy(cmdLine,arr);
     free(arr);
     return cmdLine;
