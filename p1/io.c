@@ -91,7 +91,7 @@ bool IsReading()
   return isReading;
 }
 
-int getCommandLine(char** buf, int size)
+void getCommandLine(char** buf, int size)
 {
   char ch;
   size_t used=0;
@@ -114,6 +114,5 @@ int getCommandLine(char** buf, int size)
     cmd[used] = '\0';
   }
   isReading = FALSE;
-  return size;
 }
 

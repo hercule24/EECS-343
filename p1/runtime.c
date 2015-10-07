@@ -190,7 +190,8 @@ static int tsh_alias(commandT *cmd)
 			left = strtok(NULL,"");
 		}else if(strstr(cmd->cmdline,"=\"")){
 			strtok(cmd->cmdline," ");
-			nname = strtok(NULL,"='");
+			nname = strtok(NULL,"=\"");
+			oname = strtok(NULL,"");
 			oname++;
 			if(strchr(oname,'\"')){
 			oname = strtok(oname,"\"");
@@ -229,13 +230,18 @@ static int tsh_alias(commandT *cmd)
 		if(!exist){
 			//update the oldvalue if redefining the newvalue
 			if(upd){
-				update->oldname = oname;	
+				free(update->oldname);
+				update->oldname = malloc(sizeof(oname)+1);	
+				strcpy(update->oldname,oname);
 			}else{
-			char * sd = "";
-			printf("%s",sd);
+//			char * sd = "";
+//			printf("%s",sd);
 			aliasL* node = malloc(sizeof(aliasL));
-			node->newname = nname;
-			node->oldname = oname;
+			node->newname = malloc(sizeof(nname)+1);
+			node->oldname = malloc(sizeof(oname)+1);
+			strcpy(node->newname, nname);
+			strcpy(node->oldname,oname);
+			//printf("nn:%s; on:%s\n",node->newname,node->oldname);
 			node->next = NULL;
 			if(head==NULL){
 				head = node;
@@ -247,6 +253,9 @@ static int tsh_alias(commandT *cmd)
 			}
 		}
 		}
+		//free(nname);
+		//free(oname);
+		
 	}else {
 		printf("alias format: alias xxx='xx'\n");
 	}
@@ -272,6 +281,8 @@ static int tsh_unalias(commandT *cmd)
 			}else{
 				head = head->next;
 			}
+			free(child->newname);
+			free(child->oldname);
 			free(child);
 			return 0;
 		}else{
@@ -283,6 +294,8 @@ static int tsh_unalias(commandT *cmd)
 					if(child==tail){
 						tail = parent;
 					}
+					free(child->newname);
+					free(child->oldname);
 					free(child);
 					return 0;
 				}
@@ -446,6 +459,7 @@ void RunCmdBg(commandT* cmd)
 
 void RunCmdPipe(commandT* cmd1, commandT* cmd2, bool last)
 {
+	//printf("inside pipe,cmd1=%s,cmd2=%s\n",cmd1->name,cmd2->name);
 	int pid = fork(),pid1;
 	if(pid==0){
 		int p[2];
@@ -456,13 +470,13 @@ void RunCmdPipe(commandT* cmd1, commandT* cmd2, bool last)
 		dup2(p[0],0);
 		close(p[1]);
 		if(last){
-			execvp(cmd2->name, cmd2->argv);
+			execvp(cmd2->argv[0], cmd2->argv);
 		}
 		}else{
 			//replace stdout
 			dup2(p[1],1);
 			close(p[0]);
-			execvp(cmd1->name, cmd1->argv);
+			execvp(cmd1->argv[0], cmd1->argv);
                         waitFg(pid1);
 		}
 	}else{

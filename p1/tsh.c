@@ -73,11 +73,11 @@ static void sigint_handler(int);
 static void sigtstp_handler(int);
 static void sigchld_handler(int);
 
-static char *alias_handler(char*,char*, int);
+static char *alias_handler(char*,char*);
 
 static void block_signals(int signo);
 static void unblock_signals();
-
+static char * rfirst;
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
@@ -87,7 +87,7 @@ int main (int argc, char *argv[])
   /* Initialize command buffer */
   chdir(getenv("HOME"));
   char * cmdLine = malloc(sizeof(char*)*BUFSIZE);
-	char * rfirst = (char *)malloc(256);
+  rfirst = malloc(sizeof(char*)*BUFSIZE);
   /* shell initialization */
   if (signal(SIGINT, sigint_handler) == SIG_ERR) PrintPError("SIGINT");
   if (signal(SIGTSTP, sigtstp_handler) == SIG_ERR) PrintPError("SIGTSTP");
@@ -107,7 +107,7 @@ int main (int argc, char *argv[])
 
     /* read command line */
     block_signals(SIGCHLD);
-    int size = getCommandLine(&cmdLine, BUFSIZE);
+    getCommandLine(&cmdLine, BUFSIZE);
     unblock_signals();
 
     if(strcmp(cmdLine, "exit") == 0)
@@ -121,7 +121,17 @@ int main (int argc, char *argv[])
 
     /* interpret command and line
 * includes executing of commands */
-    Interpret(alias_handler(rfirst,cmdLine,size));
+    char * ncmd = malloc(strlen(cmdLine)+1);
+    strcpy(ncmd, cmdLine);
+    char * new  = alias_handler(cmdLine,ncmd);
+    if(new == cmdLine){
+      Interpret(cmdLine);
+    }else{
+      ncmd = new;
+      Interpret(ncmd);
+      free(ncmd);
+    }
+    //Interpret(cmdLine);
   }
 
   /* shell termination */
@@ -129,6 +139,8 @@ int main (int argc, char *argv[])
   while(head!=tail){
     aliasL * node = head;
     head = head->next;
+    free(node->newname);
+    free(node->oldname);
     free(node);
   }
   free(head);
@@ -171,10 +183,11 @@ static void sigchld_handler(int signo)
   }
 }
 
-static char * alias_handler(char * rfirst,char * cmdLine, int size){
-  if(strlen(cmdLine)){
+static char * alias_handler(char * oldcmd, char * cmdLine){
+  if(strlen(oldcmd)){
   //de-aliasing when the cmdLine is not empty
-     int len= strlen(cmdLine);
+      int size = strlen(cmdLine);	
+      memset(rfirst,0,strlen(rfirst));
       //get the first command before space
       char * first = strtok(cmdLine, " ");
       //look it up for alias
@@ -196,8 +209,11 @@ static char * alias_handler(char * rfirst,char * cmdLine, int size){
         }
         node = node->next;
       }
+      if(strlen(rfirst)==0){
+	return oldcmd;
+      }
       //create an array to store the final command
-        char *arr=(char *)malloc(strlen(rfirst)+size);
+        char *arr=(char *)malloc(strlen(rfirst)+ size);
 	if(strlen(rfirst) != 0){
 	  strcat(arr,rfirst);
 	}else{
@@ -212,8 +228,9 @@ static char * alias_handler(char * rfirst,char * cmdLine, int size){
     cmdLine =realloc(cmdLine,strlen(arr));
     strcpy(cmdLine,arr);
     free(arr);
+    return cmdLine;
   }
-  return cmdLine;
+  return oldcmd;
 }
 
 static void block_signals(int signo)

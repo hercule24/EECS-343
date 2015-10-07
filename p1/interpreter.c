@@ -121,6 +121,7 @@ void parser_single(char *c, int sz, commandT** cd, int bg)
     while ((*tmp) != '\0') tmp++;
     tmp ++;
   }
+    //printf("name=%s\n",(*cd)->name);
   if(in){
     (*cd) -> is_redirect_in = 1;
     (*cd) -> redirect_in = strdup(single_param(in));
