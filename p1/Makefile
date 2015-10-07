@@ -29,7 +29,7 @@ RM = rm
 MKDIR = mkdir
 TAR = tar cvf
 COMPRESS = gzip
-CFLAGS = -g -w -D HAVE_CONFIG_H
+CFLAGS = -g -Wall -D HAVE_CONFIG_H
 DOC = tsh.1
 
 DELIVERY = Makefile *.h *.c ${DOC}

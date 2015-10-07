@@ -326,6 +326,8 @@ static int tsh_bg(commandT *cmd)
       p = p->next;
     }
   }
+
+  return 0;
 }
 
 static int tsh_jobs(commandT *cmd)
@@ -338,6 +340,7 @@ static int tsh_jobs(commandT *cmd)
     }
     p = p->pre;
   }
+  return 0;
 }
 
 static int tsh_fg(commandT *cmd)
@@ -348,7 +351,6 @@ static int tsh_fg(commandT *cmd)
     return -1;
   }
 
-  int status;
   pid_t pgid;
   if (cmd->argc == 1) {
     // first bring stopped process to foreground
@@ -392,6 +394,7 @@ static int tsh_fg(commandT *cmd)
       p = p->next;
     }
   }
+  return 0;
 }
 
 int total_task;
@@ -443,7 +446,6 @@ void RunCmdBg(commandT* cmd)
 
 void RunCmdPipe(commandT* cmd1, commandT* cmd2, bool last)
 {
-	int status;
 	int pid = fork(),pid1;
 	if(pid==0){
 		int p[2];
@@ -539,7 +541,6 @@ static bool ResolveExternalCmd(commandT* cmd)
 static void Exec(commandT* cmd, bool forceFork)
 {
   pid_t pid = fork();
-  int status;
   if (pid == 0) {
     setpgid(0, 0);
     // redirect out
