@@ -634,12 +634,14 @@ void addToBgList(Job *job)
 void removeFromJobList(pid_t pid)
 {
   // no job
+  //printf("inside removeFromJobList\n");
   if (jobListHead == NULL) {
     return;
   }
 
   // only one job
-  if (jobListHead->next == NULL) {
+  if (jobListHead == jobListTail) {
+    //printf("only on job\n");
     if (jobListHead->pgid == pid) {
       //ReleaseCmdT(&(jobListHead->cmd));
       free(jobListHead);
@@ -650,19 +652,31 @@ void removeFromJobList(pid_t pid)
   }
 
   Job *p = jobListHead;
+  //printf("at least two jobs\n");
 
-  // at lease two jobs
   while (p != NULL) {
-    Job *next = p->next;
-    if (next != NULL && next->pgid == pid) {
-      Job *next_next = next->next;
-      p->next = next_next;
-      if (next_next != NULL) {
-        next_next->pre = p;
+    if (p->pgid == pid) {
+      // head
+      if (p->pre == NULL) {
+        Job *temp = jobListHead;
+        jobListHead = jobListHead->next;
+        free(temp);
+        if (jobListHead != NULL) {
+          jobListHead->pre = NULL;
+        }
+        return;
+      } else {
+        Job *pre = p->pre;
+        pre->next = p->next;
+        if (p->next != NULL) {
+          p->next->pre = pre;
+        }
+        if (p == jobListTail) {
+          jobListTail = pre;
+        }
+        free(p);
+        return;
       }
-      //ReleaseCmdT(&(next->cmd));
-      free(next);
-      return;
     }
     p = p->next;
   }
