@@ -285,8 +285,6 @@ static int tsh_alias(commandT *cmd)
 			}
 		}
 		}
-		//free(nname);
-		//free(oname);
 		
 	}else {
 		printf("alias format: alias xxx='xx'\n");
@@ -532,7 +530,7 @@ static void RunExternalCmd(commandT* cmd, bool fork)
     Exec(cmd, fork);
   }
   else {
-    printf("%s: command not found\n", cmd->argv[0]);
+    printf("/bin/bash/ line 6: %s: command not found\n", cmd->argv[0]);
     fflush(stdout);
     ReleaseCmdT(&cmd);
   }
