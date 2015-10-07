@@ -444,20 +444,39 @@ int total_task;
 void RunCmd(commandT** cmd, int n)
 {
   int i;
-  bool last;
+  int p[2];
+  int pid;
+  int fd_in = 0;
+  //bool last;
   total_task = n;
   if(n == 1){
     RunCmdFork(cmd[0], TRUE);
   }else{
 //remove the limit of # pipes
-  for(i=0;i<n-1;i++){
+  for(i=0;i<n;i++){
 	  //if not the last command, run it in next loop
-	if(i!=n-2){
-		last = FALSE;
+	//if(i!=n-2){
+	//	last = FALSE;
+	//}else{
+	//	last = TRUE;
+	//}
+	//RunCmdPipe(cmd[i],cmd[i+1], last);	
+	pipe(p);
+	if((pid=fork())==-1){
+		exit(1);
+	}else if(pid == 0){
+		dup2(fd_in,0);
+		if(i!=n-1){
+			dup2(p[1],1);
+		}
+		close(p[0]);
+		execvp(cmd[i]->argv[0],cmd[i]->argv);
+		exit(1);
 	}else{
-		last = TRUE;
+		wait(NULL);
+		close(p[1]);
+		fd_in = p[0];
 	}
-	RunCmdPipe(cmd[i],cmd[i+1], last);	
   }
     for(i = 0; i < n; i++)
       ReleaseCmdT(&cmd[i]);
@@ -490,14 +509,14 @@ void RunCmdPipe(commandT* cmd1, commandT* cmd2, bool last)
 {
 	//printf("inside pipe,cmd1=%s,cmd2=%s\n",cmd1->name,cmd2->name);
 	int pid = fork(),pid1;
-        int status;
+        int status,in=0;
 	if(pid==0){
 		int p[2];
 		pipe(p);
 		pid1 = fork();
 		if(pid1 == 0){
 		//replace stdin
-		dup2(p[0],0);
+		dup2(in,0);
 		close(p[1]);
 		if(last){
 			execvp(cmd2->argv[0], cmd2->argv);
@@ -530,7 +549,7 @@ static void RunExternalCmd(commandT* cmd, bool fork)
     Exec(cmd, fork);
   }
   else {
-    printf("/bin/bash/ line 6: %s: command not found\n", cmd->argv[0]);
+    printf("/bin/bash: line 6: %s: command not found\n", cmd->argv[0]);
     fflush(stdout);
     ReleaseCmdT(&cmd);
   }
