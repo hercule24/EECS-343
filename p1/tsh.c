@@ -85,7 +85,7 @@ static char * rfirst;
 int main (int argc, char *argv[])
 {
   /* Initialize command buffer */
-  chdir(getenv("HOME"));
+  //chdir(getenv("HOME"));
   char * cmdLine = malloc(sizeof(char*)*BUFSIZE);
   rfirst = malloc(sizeof(char*)*BUFSIZE);
   /* shell initialization */
@@ -97,14 +97,13 @@ int main (int argc, char *argv[])
   {
     fflush(stdout);
     /* This block should be commented out when handin. */
-    fflush(stdout);
-    char buf[DIRECTORY_LENGTH];
-    getcwd(buf, DIRECTORY_LENGTH);
-    if (strcmp(buf, getenv("HOME")) == 0) {
-      printf("tsh:~ $ ");
-    } else {
-      printf("tsh:%s $ ", getcwd(buf, DIRECTORY_LENGTH));
-    }
+    //char buf[DIRECTORY_LENGTH];
+    //getcwd(buf, DIRECTORY_LENGTH);
+    //if (strcmp(buf, getenv("HOME")) == 0) {
+    //  printf("tsh:~ $ ");
+    //} else {
+    //  printf("tsh:%s $ ", getcwd(buf, DIRECTORY_LENGTH));
+    //}
     /********************************************/
 
     /* read command line */
