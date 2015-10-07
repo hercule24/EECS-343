@@ -677,45 +677,76 @@ static void RunBuiltInCmd(commandT* cmd, int index)
 void CheckJobs()
 {
   //printf("At the very beginning of CheckJobs\n"); 
-  if (jobListHead == NULL) {
+  if (jobListTail == NULL) {
     //printf("no jobs\n");
+    nextJobId = 1;
     return;
   }
 
   // only one job
-  if (jobListHead->next == NULL) {
-    if (jobListHead->state == 2) {
-      //printf("inside only one job\n");
-      printf("[%d]   Done                    ", jobListHead->jobId);
-      printCommand(jobListHead->cmd);
+  if (jobListTail == jobListHead) {
+    //printf("inside only one job\n");
+    if (jobListTail->state == TERMINATED) {
+      printf("[%d]   Done                    ", jobListTail->jobId);
+      printCommand(jobListTail->cmd);
       printf("\n");
-      ReleaseCmdT(&(jobListHead->cmd));
-      free(jobListHead);
+      ReleaseCmdT(&(jobListTail->cmd));
+      free(jobListTail);
       jobListHead = NULL;
       jobListTail = NULL;
       return;
     }
   }
 
-  Job *p = jobListHead;
-
   // at leasst two jobs
-  while (p != NULL) {
-    Job *next = p->next;
-    if (next != NULL && next->state == 2) {
-      //printf("inside two jobs\n");
-      Job *next_next = next->next;
-      p->next = next_next;
-      if (next_next != NULL) {
-        next_next->pre = p;
+  // start from tail, remove all jobs, that are terminated, 
+  // until one still running or stopped.
+  while (jobListTail != NULL) {
+    if (jobListTail->state == TERMINATED) {
+      //printf("Removing job %d\n", jobListTail->jobId);
+      Job *next = jobListTail;
+      jobListTail = jobListTail->pre; 
+      if (jobListTail != NULL) {
+        jobListTail->next = NULL;
       }
-      printf("[%d]   Done                    ", p->jobId);
-      printCommand(p->cmd);
+      printf("[%d]   Done                    ", next->jobId);
+      printCommand(next->cmd);
       printf("\n");
       ReleaseCmdT(&(next->cmd));
       free(next);
+    } else {
+      break; // break if one running or stopped.
     }
-    p = p->next;
+  }
+
+  if (jobListTail == NULL) {
+    jobListHead = NULL;
+    nextJobId = 1;
+    return;
+  }
+
+  Job *p = jobListTail;
+  Job *pre = p->pre;
+
+  while (pre != NULL) {
+    if (pre->state == TERMINATED) {
+      Job *pre_pre = pre->pre;
+      p->pre = pre_pre;
+      if (pre_pre != NULL) {
+        pre_pre->next = p;
+      }
+      printf("[%d]   Done                    ", pre->jobId);
+      printCommand(pre->cmd);
+      printf("\n");
+      ReleaseCmdT(&(pre->cmd));
+      free(pre);
+      pre = pre_pre;
+    } else {
+      p = pre;
+      if (pre != NULL) {
+        pre = pre->pre;
+      }
+    }
   }
 }
 

@@ -174,6 +174,7 @@ static void sigchld_handler(int signo)
         Job *head = jobListHead;
         while (head != NULL) {
           if (head->pgid == pid) {
+            //printf("job id = %d\n", head->jobId);
             head->state = TERMINATED;
             break;
           }
