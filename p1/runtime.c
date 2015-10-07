@@ -231,6 +231,9 @@ static int tsh_alias(commandT *cmd)
 			//update the oldvalue if redefining the newvalue
 			if(upd){
 				free(update->oldname);
+                                if(strcmp(oname,"~/")==0||strcmp(oname,"~")==0){
+                                  oname = getenv("HOME");
+                                }
 				update->oldname = malloc(sizeof(oname)+1);	
 				strcpy(update->oldname,oname);
 			}else{
@@ -238,6 +241,9 @@ static int tsh_alias(commandT *cmd)
 //			printf("%s",sd);
 			aliasL* node = malloc(sizeof(aliasL));
 			node->newname = malloc(sizeof(nname)+1);
+                        if(strcmp(oname,"~/")==0||strcmp(oname,"~")==0){
+                              oname = getenv("HOME");
+                        }
 			node->oldname = malloc(sizeof(oname)+1);
 			strcpy(node->newname, nname);
 			strcpy(node->oldname,oname);
@@ -471,7 +477,6 @@ void RunCmdPipe(commandT* cmd1, commandT* cmd2, bool last)
 		close(p[1]);
 		if(last){
 			execvp(cmd2->argv[0], cmd2->argv);
-                        printf("");
 		}
 		}else{
 			//replace stdout
