@@ -5,6 +5,7 @@
 *.pyc
 *.o
 *.tar
+*.gz
 p1/tsh
 p1/testsuite/myspin
 p1/testsuite/mysplit
