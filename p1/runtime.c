@@ -65,7 +65,10 @@
 #define NBUILTINCOMMANDS (sizeof BuiltInCommands / sizeof(char*))
 Job *jobListHead = NULL;
 Job *jobListTail = NULL;
-int nextJobId = 0;
+
+int nextJobId = 1;
+
+commandT *fgCmd = NULL;
 
 /*alias list implemented by linked list*/
 aliasL* head;
@@ -99,7 +102,9 @@ void addToBgList(Job *job);
 /* function for removing from job list */
 void removeFromJobList(pid_t pid);
 /* print command */
-static void printCommand(commandT*);
+void printCommand(commandT*);
+/* wait for foregournd process */
+void waitFg(pid_t);
 /************External Declaration*****************************************/
 
 /************Constants for builtin commands******************************/
@@ -328,8 +333,8 @@ static int tsh_jobs(commandT *cmd)
   Job *p = jobListTail;
   while (p != NULL) {
     switch (p->state) {
-      case 0: printf("[%d]\tRunning\t\t\t\t\t", p->jobId); printCommand(p->cmd); printf("\n"); break;
-      case 1: printf("[%d]\tStopped\t\t\t\t\t", p->jobId); printCommand(p->cmd); printf("\n"); break;
+      case RUNNING: printf("[%d]   Running                 ", p->jobId); printCommand(p->cmd); printf("&"); printf("\n"); break;
+      case STOPPED: printf("[%d]   Stopped                 ", p->jobId); printCommand(p->cmd); printf("\n"); break;
     }
     p = p->pre;
   }
@@ -344,15 +349,18 @@ static int tsh_fg(commandT *cmd)
   }
 
   int status;
-  pid_t pid;
+  pid_t pgid;
   if (cmd->argc == 1) {
     // first bring stopped process to foreground
     while (p != NULL) {
       if (p->state == STOPPED) {
-        pid = p->pgid;
-        kill(-pid, SIGCONT);
-        removeFromJobList(pid);
-        waitpid(-pid, &status, 0);
+        pgid = p->pgid;
+        kill(-pgid, SIGCONT);
+        fgCmd = p->cmd;
+        tcsetpgrp(STDOUT_FILENO, pgid);
+        waitFg(pgid);
+        tcsetpgrp(STDOUT_FILENO, getpid());
+        removeFromJobList(pgid);
         return 0;
       }
       p = p->next;
@@ -360,19 +368,25 @@ static int tsh_fg(commandT *cmd)
 
     // if there is none, then background running process
     p = jobListHead;
-    pid = p->pgid;
-    removeFromJobList(pid);
-    waitpid(-pid, &status, 0);
+    pgid = p->pgid;
+    fgCmd = p->cmd;
+    tcsetpgrp(STDOUT_FILENO, pgid);
+    waitFg(pgid);
+    tcsetpgrp(STDOUT_FILENO, getpid());
+    removeFromJobList(pgid);
     return 0;
   } else {
     while (p != NULL) {
       if (p->jobId == atoi(cmd->argv[1])) {
-        pid = p->pgid;
+        pgid = p->pgid;
         if (p->state == STOPPED) {
-          kill(-pid, SIGCONT);
+          kill(-pgid, SIGCONT);
         }
-        removeFromJobList(pid);
-        waitpid(-pid, &status, 0);
+        fgCmd = p->cmd;
+        tcsetpgrp(STDOUT_FILENO, pgid);
+        waitFg(pgid);
+        tcsetpgrp(STDOUT_FILENO, getpid());
+        removeFromJobList(pgid);
         return 0;
       }
       p = p->next;
@@ -414,6 +428,7 @@ void RunCmdFork(commandT* cmd, bool fork)
   if (index != -1)
   {
     RunBuiltInCmd(cmd, index);
+    ReleaseCmdT(&cmd);
   }
   else
   {
@@ -439,17 +454,17 @@ void RunCmdPipe(commandT* cmd1, commandT* cmd2, bool last)
 		dup2(p[0],0);
 		close(p[1]);
 		if(last){
-			execvp(cmd2->argv[0], cmd2->argv);
+			execvp(cmd2->name, cmd2->argv);
 		}
 		}else{
 			//replace stdout
 			dup2(p[1],1);
 			close(p[0]);
-			execvp(cmd1->argv[0], cmd1->argv);
-			waitpid(pid1,&status,0);
+			execvp(cmd1->name, cmd1->argv);
+                        waitFg(pid1);
 		}
 	}else{
-		waitpid(pid, &status,0);
+          waitFg(pid);
 	}
 }
 
@@ -523,7 +538,7 @@ static bool ResolveExternalCmd(commandT* cmd)
 // since the forceFork is always true, don't understand why it's there.
 static void Exec(commandT* cmd, bool forceFork)
 {
-  int pid = fork();
+  pid_t pid = fork();
   int status;
   if (pid == 0) {
     setpgid(0, 0);
@@ -547,19 +562,24 @@ static void Exec(commandT* cmd, bool forceFork)
       dup(in_fd);
     }
 
-    execvp(cmd->argv[0], cmd->argv); 
+    execv(cmd->name, cmd->argv); 
   } else {
     if (cmd->bg == FOREGROUND) {
-      waitpid(pid, &status, 0);
+      fgCmd = cmd;
+      signal(SIGTTOU, SIG_IGN);
+      signal(SIGTTIN, SIG_IGN);
+      tcsetpgrp(STDOUT_FILENO, pid);
+      waitFg(pid);
+      tcsetpgrp(STDOUT_FILENO, getpid());
     } else {
-      printf("[%d] %d\n", nextJobId, pid);
+      //printf("[%d] %d\n", nextJobId, pid);
       Job *job = (Job *) malloc(sizeof(Job));
       job->jobId = nextJobId;
       job->pgid = pid;
       job->next = NULL;
       job->pre = NULL;
       job->cmd = cmd;
-      job->state = 0;
+      job->state = RUNNING;
       addToBgList(job);
       nextJobId++;
     }
@@ -600,6 +620,7 @@ void removeFromJobList(pid_t pid)
   // only one job
   if (jobListHead->next == NULL) {
     if (jobListHead->pgid == pid) {
+      //ReleaseCmdT(&(jobListHead->cmd));
       free(jobListHead);
       jobListHead = NULL;
       jobListTail = NULL;
@@ -618,6 +639,7 @@ void removeFromJobList(pid_t pid)
       if (next_next != NULL) {
         next_next->pre = p;
       }
+      //ReleaseCmdT(&(next->cmd));
       free(next);
       return;
     }
@@ -643,9 +665,10 @@ void CheckJobs()
   if (jobListHead->next == NULL) {
     if (jobListHead->state == 2) {
       //printf("inside only one job\n");
-      printf("[%d]\tDone\t\t\t\t\t", jobListHead->jobId);
+      printf("[%d]   Done                    ", jobListHead->jobId);
       printCommand(jobListHead->cmd);
       printf("\n");
+      ReleaseCmdT(&(jobListHead->cmd));
       free(jobListHead);
       jobListHead = NULL;
       jobListTail = NULL;
@@ -665,20 +688,44 @@ void CheckJobs()
       if (next_next != NULL) {
         next_next->pre = p;
       }
-      printf("[%d]\tDone\t\t\t\t\t", p->jobId);
+      printf("[%d]   Done                    ", p->jobId);
       printCommand(p->cmd);
       printf("\n");
+      ReleaseCmdT(&(next->cmd));
       free(next);
     }
     p = p->next;
   }
 }
 
-static void printCommand(commandT *cmd)
+void printCommand(commandT *cmd)
 {
   int i;
   for (i = 0; i < cmd->argc; i++) {
     printf("%s ", cmd->argv[i]);
+  }
+}
+
+void waitFg(pid_t pid) {
+  int status;
+  waitpid(pid, &status, WUNTRACED);
+  if (WIFSTOPPED(status)) {
+    tcsetpgrp(STDOUT_FILENO, getpid()); 
+    Job *job = (Job *) malloc(sizeof(Job));
+    job->jobId = nextJobId;
+    job->pgid = pid;
+    job->next = NULL;
+    job->pre = NULL;
+    job->cmd = fgCmd;
+    job->state = STOPPED;
+    printf("\n");
+    printf("[%d]   Stopped                 ", nextJobId);
+    printCommand(fgCmd);
+    printf("\n");
+    addToBgList(job);
+    nextJobId++;
+  } else {
+    ReleaseCmdT(&fgCmd);
   }
 }
 

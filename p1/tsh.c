@@ -73,7 +73,6 @@ static void sigint_handler(int);
 static void sigtstp_handler(int);
 static void sigchld_handler(int);
 
-static void reapZombies();
 static char *alias_handler(char*,char*, int);
 
 static void block_signals(int signo);
@@ -105,8 +104,6 @@ int main (int argc, char *argv[])
       printf("tsh:%s $ ", getcwd(buf, DIRECTORY_LENGTH));
     }
     /********************************************/
-
-    //reapZombies();
 
     /* read command line */
     block_signals(SIGCHLD);
@@ -152,42 +149,20 @@ static void sigtstp_handler(int signo)
   }
 }
 
-// reap zombie childe process
-// "-1" indicates it will wait for any child process,
-// Setting "WNOHANG" prevents this handler from blocking
-static void reapZombies()
-{
-  int status;
-  pid_t pid;
-  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-    // if normally exited.
-    if (WIFEXITED(status)) {
-      Job *head = jobListHead;
-      while (head != NULL) {
-        if (head->pgid == pid) {
-          //printf("pid = %d\n", pid);
-          head->state = 2;
-          break;
-        }
-        head = head->next;
-      }
-    }
-  }
-}
-
 static void sigchld_handler(int signo)
 {
   if (signo == SIGCHLD) {
     int status;
     pid_t pid;
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    // check for exit, stopped
+    while ((pid = waitpid(-1, &status, WNOHANG) > 0)) {
       // if normally exited.
       if (WIFEXITED(status)) {
         Job *head = jobListHead;
         while (head != NULL) {
           if (head->pgid == pid) {
             //printf("pid = %d\n", pid);
-            head->state = 2;
+            head->state = TERMINATED;
             break;
           }
           head = head->next;
