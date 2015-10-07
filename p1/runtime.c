@@ -723,7 +723,11 @@ void printCommand(commandT *cmd)
 {
   int i;
   for (i = 0; i < cmd->argc; i++) {
-    printf("%s ", cmd->argv[i]);
+    if (i == (cmd->argc) - 1 && strcmp(cmd->argv[0], "bash") == 0) {
+      printf("\"%s\" ", cmd->argv[i]);    
+    } else {
+      printf("%s ", cmd->argv[i]);
+    }
   }
 }
 
