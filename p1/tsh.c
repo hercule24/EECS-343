@@ -95,6 +95,7 @@ int main (int argc, char *argv[])
 
   while (!forceExit) /* repeat forever */
   {
+    fflush(stdout);
     /* This block should be commented out when handin. */
     char buf[DIRECTORY_LENGTH];
     getcwd(buf, DIRECTORY_LENGTH);
