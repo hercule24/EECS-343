@@ -104,7 +104,7 @@ void removeFromJobList(pid_t pid);
 /* print command */
 void printCommand(commandT*);
 /* wait for foregournd process */
-void waitFg(pid_t);
+void waitFg(pid_t, Job *job);
 /************External Declaration*****************************************/
 
 /************Constants for builtin commands******************************/
@@ -401,11 +401,10 @@ static int tsh_fg(commandT *cmd)
       if (p->state == STOPPED) {
         pgid = p->pgid;
         kill(-pgid, SIGCONT);
+        p->state = RUNNING;
         fgCmd = p->cmd;
         tcsetpgrp(STDOUT_FILENO, pgid);
-        waitFg(pgid);
-        tcsetpgrp(STDOUT_FILENO, getpid());
-        removeFromJobList(pgid);
+        waitFg(pgid, p);
         return 0;
       }
       p = p->next;
@@ -416,9 +415,7 @@ static int tsh_fg(commandT *cmd)
     pgid = p->pgid;
     fgCmd = p->cmd;
     tcsetpgrp(STDOUT_FILENO, pgid);
-    waitFg(pgid);
-    tcsetpgrp(STDOUT_FILENO, getpid());
-    removeFromJobList(pgid);
+    waitFg(pgid, p);
     return 0;
   } else {
     while (p != NULL) {
@@ -426,12 +423,11 @@ static int tsh_fg(commandT *cmd)
         pgid = p->pgid;
         if (p->state == STOPPED) {
           kill(-pgid, SIGCONT);
+          p->state = RUNNING;
         }
         fgCmd = p->cmd;
         tcsetpgrp(STDOUT_FILENO, pgid);
-        waitFg(pgid);
-        tcsetpgrp(STDOUT_FILENO, getpid());
-        removeFromJobList(pgid);
+        waitFg(pgid, p);
         return 0;
       }
       p = p->next;
@@ -633,8 +629,7 @@ static void Exec(commandT* cmd, bool forceFork)
       signal(SIGTTOU, SIG_IGN);
       signal(SIGTTIN, SIG_IGN);
       tcsetpgrp(STDOUT_FILENO, pid);
-      waitFg(pid);
-      tcsetpgrp(STDOUT_FILENO, getpid());
+      waitFg(pid, NULL);
     } else {
       // printf("[%d] %d\n", nextJobId, pid);
       Job *job = (Job *) malloc(sizeof(Job));
@@ -645,7 +640,6 @@ static void Exec(commandT* cmd, bool forceFork)
       job->cmd = cmd;
       job->state = RUNNING;
       addToBgList(job);
-      nextJobId++;
     }
   }
 }
@@ -664,6 +658,7 @@ static int findBuiltIn(char* cmd)
 
 void addToBgList(Job *job)
 {
+  nextJobId++;
   if (jobListHead == NULL) {
     jobListHead = job;
     jobListTail = job;
@@ -819,34 +814,42 @@ void printCommand(commandT *cmd)
   }
 }
 
-void waitFg(pid_t pid) {
+void waitFg(pid_t pid, Job *job) {
   int status;
   waitpid(pid, &status, WUNTRACED);
   if (WIFSTOPPED(status)) {
-    tcsetpgrp(STDOUT_FILENO, getpid()); 
-    Job *job = (Job *) malloc(sizeof(Job));
-    job->jobId = nextJobId;
-    job->pgid = pid;
-    job->next = NULL;
-    job->pre = NULL;
-    job->cmd = fgCmd;
-    job->state = STOPPED;
+    tcsetpgrp(STDOUT_FILENO, getpid());
+    // if previously a foreground job
+    if (job == NULL) {
+      job = (Job *) malloc(sizeof(Job));
+      job->jobId = nextJobId;
+      job->pgid = pid;
+      job->next = NULL;
+      job->pre = NULL;
+      job->cmd = fgCmd;
+      job->state = STOPPED;
+      addToBgList(job);
+    } else {
+      job->state = STOPPED;
+    }
     printf("\n");
-    printf("[%d]   Stopped                 ", nextJobId);
+    printf("[%d]   Stopped                 ", job->jobId);
     printCommand(fgCmd);
     printf("\n");
-    addToBgList(job);
-    nextJobId++;
     fgCmd = NULL;
   } else if (WIFSIGNALED(status)) {
     if (WTERMSIG(status) == SIGINT) {
       //printf("child terminated by sigint\n");
     }
+    tcsetpgrp(STDOUT_FILENO, getpid()); 
     printf("\n");
     ReleaseCmdT(&fgCmd);
+    removeFromJobList(pid);
     fgCmd = NULL;
   } else if (WIFEXITED(status)) {
+    tcsetpgrp(STDOUT_FILENO, getpid()); 
     ReleaseCmdT(&fgCmd);
+    removeFromJobList(pid);
     fgCmd = NULL;
   }
 }
