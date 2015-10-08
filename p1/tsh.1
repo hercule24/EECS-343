@@ -1,0 +1,69 @@
+.\" groff -man -Tascii foo.1
+.\"
+.TH TSH 1 "OCT 2015" Linux "User Manuals"
+.SH NAME
+tsh \- Tiny Shell for Operating Systems project
+.SH SYNOPSIS
+.B ./tsh
+.SH DESCRIPTION
+.B tsh
+is an a tiny shell which has the basic functionality of BASH. It can execute six different built-in commands: cd, fg, bg, jobs, alias, unalias. For further descriptions on these commands, please see below. External commands included in all directories of the PATH environment can be executed as child processes. Redirection, alias, pipeline is also possible. 
+.\"SH OPTIONS
+.SH BUILTIN COMMANDS
+.IP "cd [DIRECTORY]"
+Change the current working directory specified as
+.B DIRECTORY.
+If no argument is provided by user, it will change the directory to be the home directory of the user.
+.IP "echo [ARGUMENTS] ..."
+This command will print all the provided arguments.
+.IP "fg JOB-NUMBER"
+.B fg
+tell a job to continue and bring the backgrounded job to the foreground. It takes a job ID number as an argument. If no argument specified, it will bring the job with largest job ID to the foreground.
+.IP "bg JOB-NUMBER"
+.B bg
+command will transfer the state of a command with the job ID specified by JOB-NUMBER from Stopped to Running. If no argument specified, it will work on the job with largest job ID.
+.IP jobs
+Print all the jobs with different status, such as
+Done, Stopped, Running.
+.IP "alias [KEY=VALUE]"
+Print all the aliases input by user in lexicographic order
+if no argument is provided. Otherwise, KEY, VALUE pair will be added to the alias list, when running the KEY from tsh, it will expand into the VALUE.
+.IP "unalias KEY"
+Remove the KEY and its corresponding VALUE from the alias list.
+.\".SH FILES
+.\".I /etc/foo.conf
+.\".RS
+.\"The system wide configuration file. See
+.\".BR foo (5)
+.\"for further details.
+.\".RE
+.\".I ~/.foorc
+.\".RS
+.\"Per user configuration file. See
+.\".BR foo (5)
+.\"for further details.
+.SH ENVIRONMENT
+.IP PATH
+This environment variable is used by
+.IR tsh
+to retrieve the external executable file search path.
+.\".SH DIAGNOSTICS
+.\"The following diagnostics may be issued on stderr:
+.\"
+.\"Bad magic number.
+.\".RS
+.\"The input file does not look like an archive file.
+.\".RE
+.\"Old style baz segments.
+.\".RS
+.\".B foo
+.\"can only handle new style baz segments. COBOL
+.\"object libraries are not supported in this version.
+.SH NOTES
+Please consider for extra credits
+.SH AUTHOR
+lijuntang <lijuntang6.2014@u.northwestern.edu>, Qu Yi
+.\"SH "SEE ALSO"
+.\"BR bar (1),
+.\"BR foo (5),
+.\"BR xyzzy (1)
