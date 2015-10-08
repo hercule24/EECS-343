@@ -837,8 +837,17 @@ void waitFg(pid_t pid) {
     printf("\n");
     addToBgList(job);
     nextJobId++;
-  } else {
+    fgCmd = NULL;
+  } else if (WIFSIGNALED(status)) {
+    if (WTERMSIG(status) == SIGINT) {
+      //printf("child terminated by sigint\n");
+    }
+    printf("\n");
     ReleaseCmdT(&fgCmd);
+    fgCmd = NULL;
+  } else if (WIFEXITED(status)) {
+    ReleaseCmdT(&fgCmd);
+    fgCmd = NULL;
   }
 }
 

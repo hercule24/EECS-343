@@ -59,6 +59,7 @@
 #define DIRECTORY_LENGTH 256
 //head and tail for alias list
 EXTERN Job* jobListHead;
+EXTERN Job* fgCmd;
 
 sigset_t mask;
 sigset_t old_mask;
@@ -153,6 +154,14 @@ int main (int argc, char *argv[])
 static void sigint_handler(int signo)
 {
   if (signo == SIGINT) {
+    //printf("inside SIGINT handler\n");
+    //PrintPError("sigint_handler");
+    ////pid_t pgid = tcgetpgrp(STDOUT_FILENO);
+    ////printf("%d\n", -pgid);
+    //printf("foreground pgid = %d\n", fgCmd->pgid);
+    //if (fgCmd != NULL) {
+    //  kill(-(fgCmd->pgid), SIGINT);
+    //}
   }
 }
 
