@@ -816,6 +816,8 @@ void printCommand(commandT *cmd)
 
 void waitFg(pid_t pid, Job *job) {
   int status;
+  signal(SIGTTOU, SIG_IGN);
+  signal(SIGTTIN, SIG_IGN);
   waitpid(pid, &status, WUNTRACED);
   if (WIFSTOPPED(status)) {
     tcsetpgrp(STDOUT_FILENO, getpid());
@@ -838,10 +840,10 @@ void waitFg(pid_t pid, Job *job) {
     printf("\n");
     fgCmd = NULL;
   } else if (WIFSIGNALED(status)) {
+    tcsetpgrp(STDOUT_FILENO, getpid()); 
     if (WTERMSIG(status) == SIGINT) {
       //printf("child terminated by sigint\n");
     }
-    tcsetpgrp(STDOUT_FILENO, getpid()); 
     printf("\n");
     ReleaseCmdT(&fgCmd);
     removeFromJobList(pid);
