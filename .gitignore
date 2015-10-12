@@ -13,3 +13,11 @@ p1/testsuite/mystop
 p1/tags
 p1/testsuite/tsh-my-output.txt
 p1/testsuite/tsh-ref-output.txt
+*dSYM/
+p2/kma_dummy
+p2/kma_mck2
+p2/kma_rm
+p2/kma_bud
+p2/kma_p2fl
+p2/kma_lzbud
+p2/kma_competition
