@@ -174,11 +174,18 @@ void addToFreeList(ResourceMap *map) {
     FREE_LIST_HEAD = map;
   }
 
+
   ResourceMap dummy_head;
+  dummy_head.size = 0;
   dummy_head.next = FREE_LIST_HEAD;
-  
+
+  ResourceMap pre_dummy_head;
+  pre_dummy_head.size = 0;
+  pre_dummy_head.next = &dummy_head;
+
+  ResourceMap *pre = &pre_dummy_head;
   ResourceMap *cur = &dummy_head;
-  ResourceMap *next = cur->next;
+  ResourceMap *next = FREE_LIST_HEAD;
   
   while (next != NULL) {
     if ((size_t) next < (size_t) map) {
@@ -199,28 +206,69 @@ void addToFreeList(ResourceMap *map) {
         }
         return;
       } else {
+        pre = pre->next;
         cur = cur->next;
         next = next->next;
       }
     } else {
-      // if only one element
-      if (next == FREE_LIST_HEAD && next->next == NULL) {
-        FREE_LIST_HEAD = map;
-      }
-      if (coalesce(map, next) == NULL) {
-        cur->next = map;
-        map->next = next;
-      } else {
-        if (isWholePage(map)) {
-          if (map == FREE_LIST_HEAD) {
-            FREE_LIST_HEAD = NULL;
-          } else {
-            cur->next = map->next; 
-          }
-          kma_page_t *page = *((kma_page_t **) BASEADDR(map)); 
-          free_page(page);
+      // if next is the head
+      if (next == FREE_LIST_HEAD) {
+        if (coalesce(map, next) == NULL) {
+          FREE_LIST_HEAD = map;
+          FREE_LIST_HEAD->next = next;
         } else {
-          cur->next = map;
+          if (isWholePage(map)) {
+            // only element
+            if (next->next == NULL) {
+              FREE_LIST_HEAD = NULL;
+            } else {
+              FREE_LIST_HEAD = map->next;
+            }
+            kma_page_t *page = *((kma_page_t **) BASEADDR(map)); 
+            free_page(page);
+          }
+        }
+      } else {
+        // if we can not combine the first two
+        if (coalesce(cur, map) == NULL) {
+          // if we can not combine the last two
+          if (coalesce(map, next) == NULL) {
+            cur->next = map;
+            map->next = next;
+          } else { // if we can combine the last two
+            if (isWholePage(map)) {
+              cur->next = map->next;
+              kma_page_t *page = *((kma_page_t **) BASEADDR(map)); 
+              free_page(page);
+            } else {
+              cur->next = map;
+            }
+          }
+        } else {
+          // if we can combine the first two, but not all three
+          if (coalesce(cur, next) == NULL) {
+            if (isWholePage(cur)) {
+              if (cur == FREE_LIST_HEAD) {
+                FREE_LIST_HEAD = next;
+              } else {
+                pre->next = next;
+              }
+              kma_page_t *page = *((kma_page_t **) BASEADDR(cur)); 
+              free_page(page);
+            } else {
+              cur->next = next;
+            }
+          } else { // if we can combine all of them
+            if (isWholePage(cur)) {
+              if (cur == FREE_LIST_HEAD) {
+                FREE_LIST_HEAD = next->next;
+              } else {
+                pre->next = next->next;
+              }
+              kma_page_t *page = *((kma_page_t **) BASEADDR(cur)); 
+              free_page(page);
+            }
+          }
         }
       }
       break;
