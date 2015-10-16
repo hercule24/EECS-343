@@ -41,12 +41,14 @@
  
  ***************************************************************************/
 
+#define KMA_RM
 #ifdef KMA_RM
 #define __KMA_IMPL__
 
 /************System include***********************************************/
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 /************Private include**********************************************/
 #include "kma_page.h"
@@ -58,10 +60,20 @@
  *  variables should be in all lower case. When initializing
  *  structures and arrays, line everything up in neat columns.
  */
+typedef struct rm
+{
+  size_t size;
+  struct rm *next;
+} ResourceMap;
 
 /************Global Variables*********************************************/
+ResourceMap *FREE_LIST_HEAD = NULL;
+kma_page_t *PAGE_TYPE_ARRAY[MAXPAGES] = {NULL};
 
 /************Function Prototypes******************************************/
+void* getFromList(size_t size);
+void* getFromNewPage(kma_size_t);
+void addToFreeList(ResourceMap *);
 
 /************External Declaration*****************************************/
 
@@ -70,13 +82,196 @@
 void*
 kma_malloc(kma_size_t size)
 {
-  return NULL;
+  // allocating at least sizeof(ResourceMap)
+  if (size < sizeof(ResourceMap)) {
+    size = sizeof(ResourceMap);
+  }
+  
+  // get one more page
+  if (FREE_LIST_HEAD == NULL) {
+    return getFromNewPage(size);
+  } else {
+    void *res = getFromList(size);
+    if (res == NULL) {
+      return getFromNewPage(size); 
+    } else {
+      return res;
+    }
+  }
+}
+
+void* getFromNewPage(kma_size_t size)
+{
+  kma_page_t *page = get_page();
+  // add a pointer to the page structure at the beginning of the page
+  *((kma_page_t**) page->ptr) = page;
+
+  size_t page_size = page->size - sizeof(kma_page_t *);
+  // what if size == page_size
+  if (size <= page_size) {
+    // no need to add into the free list, 
+    // if the remaining size smaller than ResourceMap
+    // return more than wanted
+    if (page_size - size < sizeof(ResourceMap)) {
+      return (void *) ((size_t) page->ptr + sizeof(kma_page_t *));
+    } else {
+      if (FREE_LIST_HEAD == NULL) {
+        FREE_LIST_HEAD = (ResourceMap *) ((size_t) page->ptr + sizeof(kma_page_t *) + size);
+        FREE_LIST_HEAD->size = page_size - size;
+        FREE_LIST_HEAD->next = NULL;
+      } else {
+        ResourceMap *newNode = (ResourceMap *) ((size_t) page->ptr + sizeof(kma_page_t *) + size);
+        newNode->size = page_size - size;
+        newNode->next = NULL;
+        addToFreeList(newNode);
+      }
+      return (void *) ((size_t) page->ptr + sizeof(kma_page_t *));
+    }
+  } else {
+    //printf("return NULL because of larger than single page\n");
+    return NULL;  // return NULL if larger than a single page size
+  }
 }
 
 void
 kma_free(void* ptr, kma_size_t size)
 {
-  ;
+  if (size < sizeof(ResourceMap)) {
+    size = sizeof(ResourceMap);
+  }
+  ResourceMap *map = (ResourceMap *) ptr;
+  map->size = size;
+  map->next = NULL;
+  addToFreeList(map);
+}
+
+bool isWholePage(ResourceMap *map) {
+  if (map->size == PAGESIZE - sizeof(kma_page_t *)) {
+    return TRUE;
+  } else {
+    return FALSE;
+  }
+}
+
+// return NULL, if cannot coalesce
+ResourceMap *coalesce(ResourceMap *low, ResourceMap *high)
+{
+  size_t low_size = (size_t) low + low->size;
+  ssize_t high_size = (size_t) high; 
+  if (low_size == high_size) {
+    low->size = low->size + high->size;
+    low->next = high->next;
+    return low;
+  } else {
+    return NULL;
+  }
+}
+
+void addToFreeList(ResourceMap *map) {
+  if (FREE_LIST_HEAD == NULL) {
+    // no need to add to the free list if it's a whole page
+    // otherwise I have no idea where to release the page
+    FREE_LIST_HEAD = map;
+  }
+
+  ResourceMap dummy_head;
+  dummy_head.next = FREE_LIST_HEAD;
+  
+  ResourceMap *cur = &dummy_head;
+  ResourceMap *next = cur->next;
+  
+  while (next != NULL) {
+    if ((size_t) next < (size_t) map) {
+      // if the last element
+      if (next->next == NULL) {
+        if (coalesce(next, map) == NULL) {
+          next->next = map;
+        } else {
+          if (isWholePage(next)) {
+            if (next == FREE_LIST_HEAD) {
+              FREE_LIST_HEAD = NULL;
+            } else {
+              cur->next = next->next;
+            }
+            kma_page_t *page = *((kma_page_t **) BASEADDR(map)); 
+            free_page(page);
+          }
+        }
+        return;
+      } else {
+        cur = cur->next;
+        next = next->next;
+      }
+    } else {
+      // if only one element
+      if (next == FREE_LIST_HEAD && next->next == NULL) {
+        FREE_LIST_HEAD = map;
+      }
+      if (coalesce(map, next) == NULL) {
+        cur->next = map;
+        map->next = next;
+      } else {
+        if (isWholePage(map)) {
+          if (map == FREE_LIST_HEAD) {
+            FREE_LIST_HEAD = NULL;
+          } else {
+            cur->next = map->next; 
+          }
+          kma_page_t *page = *((kma_page_t **) BASEADDR(map)); 
+          free_page(page);
+        } else {
+          cur->next = map;
+        }
+      }
+      break;
+    }
+  }
+}
+
+void* getFromList(size_t size)
+{
+  ResourceMap dummy_head;
+  dummy_head.next = FREE_LIST_HEAD;
+
+  ResourceMap *cur = &dummy_head;
+  ResourceMap *next = cur->next;
+
+  while (next != NULL) {
+    if (next->size >= size) {
+      // remove it from the list
+      void *res = (void *) next;
+      if (next->size - size < sizeof(ResourceMap)) {
+        if (next == FREE_LIST_HEAD) {
+          if (FREE_LIST_HEAD->next == NULL) { // only one element
+            FREE_LIST_HEAD = NULL;
+          } else {
+            FREE_LIST_HEAD = FREE_LIST_HEAD->next;
+          }
+        } else {
+          cur->next = next->next;
+        }
+      } else {
+        if (next == FREE_LIST_HEAD) {
+          ResourceMap *next_next = next->next;
+          FREE_LIST_HEAD = (ResourceMap *) ((size_t) next + size);
+          FREE_LIST_HEAD->size = next->size - size;
+          FREE_LIST_HEAD->next = next_next;
+        } else {
+          ResourceMap *next_next = next->next;
+          cur->next = (ResourceMap *) ((size_t) next + size);
+          cur->next->size = next->size - size;
+          cur->next->next = next_next;
+        }
+      }
+      return res;
+    } else {
+      cur = cur->next;
+      next = next->next;
+    }
+  }
+
+  // though free list available, but not large enough, more pages are needed
+  return NULL;
 }
 
 #endif // KMA_RM
