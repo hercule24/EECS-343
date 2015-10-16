@@ -68,12 +68,12 @@ typedef struct rm
 
 /************Global Variables*********************************************/
 ResourceMap *FREE_LIST_HEAD = NULL;
-kma_page_t *PAGE_TYPE_ARRAY[MAXPAGES] = {NULL};
 
 /************Function Prototypes******************************************/
 void* getFromList(size_t size);
 void* getFromNewPage(kma_size_t);
 void addToFreeList(ResourceMap *);
+ResourceMap *coalesce(ResourceMap *, ResourceMap *);
 
 /************External Declaration*****************************************/
 
@@ -157,7 +157,7 @@ bool isWholePage(ResourceMap *map) {
 ResourceMap *coalesce(ResourceMap *low, ResourceMap *high)
 {
   size_t low_size = (size_t) low + low->size;
-  ssize_t high_size = (size_t) high; 
+  ssize_t high_size = (size_t) high;
   if (low_size == high_size) {
     low->size = low->size + high->size;
     low->next = high->next;
@@ -173,7 +173,6 @@ void addToFreeList(ResourceMap *map) {
     // otherwise I have no idea where to release the page
     FREE_LIST_HEAD = map;
   }
-
 
   ResourceMap dummy_head;
   dummy_head.size = 0;
@@ -226,6 +225,8 @@ void addToFreeList(ResourceMap *map) {
             }
             kma_page_t *page = *((kma_page_t **) BASEADDR(map)); 
             free_page(page);
+          } else {
+            FREE_LIST_HEAD = map;
           }
         }
       } else {
