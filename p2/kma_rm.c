@@ -73,6 +73,7 @@ ResourceMap *FREE_LIST_HEAD = NULL;
 void* getFromList(size_t size);
 void* getFromNewPage(kma_size_t);
 void addToFreeList(ResourceMap *);
+bool isWholePage(ResourceMap *);
 ResourceMap *coalesce(ResourceMap *, ResourceMap *);
 
 /************External Declaration*****************************************/
@@ -142,11 +143,17 @@ kma_free(void* ptr, kma_size_t size)
   ResourceMap *map = (ResourceMap *) ptr;
   map->size = size;
   map->next = NULL;
-  addToFreeList(map);
+  if (isWholePage(map)) {
+    kma_page_t *page = *((kma_page_t **) BASEADDR(map)); 
+    free_page(page);
+  } else {
+    addToFreeList(map);
+  }
 }
 
 bool isWholePage(ResourceMap *map) {
-  if (map->size == PAGESIZE - sizeof(kma_page_t *)) {
+  //if (map->size == PAGESIZE - sizeof(kma_page_t *)) {
+  if (PAGESIZE - sizeof(kma_size_t*) - map->size < sizeof(ResourceMap)) {
     return TRUE;
   } else {
     return FALSE;
@@ -157,8 +164,11 @@ bool isWholePage(ResourceMap *map) {
 ResourceMap *coalesce(ResourceMap *low, ResourceMap *high)
 {
   size_t low_size = (size_t) low + low->size;
-  ssize_t high_size = (size_t) high;
-  if (low_size == high_size) {
+  size_t high_size = (size_t) high;
+  size_t low_base = (size_t) BASEADDR(low);
+  size_t high_base = (size_t) BASEADDR(high);
+  if (high_size - low_size < sizeof(ResourceMap) && low_base == high_base) {
+  //if (low_size == high_size) {
     low->size = low->size + high->size;
     low->next = high->next;
     return low;
@@ -169,9 +179,8 @@ ResourceMap *coalesce(ResourceMap *low, ResourceMap *high)
 
 void addToFreeList(ResourceMap *map) {
   if (FREE_LIST_HEAD == NULL) {
-    // no need to add to the free list if it's a whole page
-    // otherwise I have no idea where to release the page
     FREE_LIST_HEAD = map;
+    return;
   }
 
   ResourceMap dummy_head;
