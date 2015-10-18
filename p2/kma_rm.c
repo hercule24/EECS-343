@@ -163,12 +163,11 @@ bool isWholePage(ResourceMap *map) {
 // return NULL, if cannot coalesce
 ResourceMap *coalesce(ResourceMap *low, ResourceMap *high)
 {
-  size_t low_size = (size_t) low + low->size;
-  size_t high_size = (size_t) high;
+  size_t low_addr = (size_t) low + low->size;
+  size_t high_addr = (size_t) high;
   size_t low_base = (size_t) BASEADDR(low);
   size_t high_base = (size_t) BASEADDR(high);
-  if (high_size - low_size < sizeof(ResourceMap) && low_base == high_base) {
-  //if (low_size == high_size) {
+  if (low_addr == high_addr && low_base == high_base) {
     low->size = low->size + high->size;
     low->next = high->next;
     return low;
@@ -206,9 +205,9 @@ void addToFreeList(ResourceMap *map) {
             if (next == FREE_LIST_HEAD) {
               FREE_LIST_HEAD = NULL;
             } else {
-              cur->next = next->next;
+              cur->next = NULL;
             }
-            kma_page_t *page = *((kma_page_t **) BASEADDR(map)); 
+            kma_page_t *page = *((kma_page_t **) BASEADDR(next)); 
             free_page(page);
           }
         }
@@ -295,31 +294,21 @@ void* getFromList(size_t size)
   ResourceMap *next = cur->next;
 
   while (next != NULL) {
-    if (next->size >= size) {
+    int left_size = (next->size) - size;
+    int right_size = sizeof(ResourceMap);
+    if (left_size >= right_size) {
       // remove it from the list
       void *res = (void *) next;
-      if (next->size - size < sizeof(ResourceMap)) {
-        if (next == FREE_LIST_HEAD) {
-          if (FREE_LIST_HEAD->next == NULL) { // only one element
-            FREE_LIST_HEAD = NULL;
-          } else {
-            FREE_LIST_HEAD = FREE_LIST_HEAD->next;
-          }
-        } else {
-          cur->next = next->next;
-        }
+      if (next == FREE_LIST_HEAD) {
+        ResourceMap *next_next = next->next;
+        FREE_LIST_HEAD = (ResourceMap *) ((size_t) next + size);
+        FREE_LIST_HEAD->size = next->size - size;
+        FREE_LIST_HEAD->next = next_next;
       } else {
-        if (next == FREE_LIST_HEAD) {
-          ResourceMap *next_next = next->next;
-          FREE_LIST_HEAD = (ResourceMap *) ((size_t) next + size);
-          FREE_LIST_HEAD->size = next->size - size;
-          FREE_LIST_HEAD->next = next_next;
-        } else {
-          ResourceMap *next_next = next->next;
-          cur->next = (ResourceMap *) ((size_t) next + size);
-          cur->next->size = next->size - size;
-          cur->next->next = next_next;
-        }
+        ResourceMap *next_next = next->next;
+        cur->next = (ResourceMap *) ((size_t) next + size);
+        cur->next->size = next->size - size;
+        cur->next->next = next_next;
       }
       return res;
     } else {
