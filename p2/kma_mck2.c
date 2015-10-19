@@ -42,12 +42,14 @@
  
  ***************************************************************************/
 
+#define KMA_MCK2
 #ifdef KMA_MCK2
 #define __KMA_IMPL__
 
 /************System include***********************************************/
 #include <assert.h>
 #include <stdlib.h>
+#include <math.h>
 
 /************Private include**********************************************/
 #include "kma_page.h"
@@ -59,18 +61,53 @@
  *  variables should be in all lower case. When initializing
  *  structures and arrays, line everything up in neat columns.
  */
+#define FREE_LIST_SIZE 14;
 
+typedef struct node
+{
+  struct node *next;
+} Node;
+
+typedef char Byte;
 /************Global Variables*********************************************/
-
+Byte *KMEMSIZES = NULL;
+Node *FREE_LIST_ARR = NULL;
 /************Function Prototypes******************************************/
-
+int roundUp(size_t size);
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
 
 void* kma_malloc(kma_size_t size)
 {
-  return NULL;
+  if (size < sizeof(Node)) {
+    size = sizeof(Node);
+  }
+
+  if (KMEMSIZES == NULL) {
+    kma_page_t *page = get_page();
+    *((kma_page_t**) page->ptr) = page;
+    KMEMSIZES = (Byte *) ((size_t) page->ptr + sizeof(kma_page_t *));
+    FREE_LIST_ARR = (Node *) ((size_t) KMEMSIZES + MAXPAGES);
+    size_t remaining_size = PAGESIZE - sizeof(kma_page_t *) - MAXPAGES * sizeof(Byte) - sizeof(size_t) * FREE_LIST_SIZE;
+  }
+}
+
+int roundUp(size_t size)
+{
+  int low = 0;
+  int high = FREE_LIST_SIZE - 1;
+  int middle;
+  int p;
+  while (low < high) {
+    middle = (high + low) / 2;
+    p = (int) pow(2, middle);
+    if (size > p) {
+      low = middle;
+    } else {
+      high = middle;
+    }
+  }
 }
 
 void kma_free(void* ptr, kma_size_t size)
