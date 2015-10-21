@@ -41,14 +41,12 @@
  
  ***************************************************************************/
 
-#define KMA_RM
 #ifdef KMA_RM
 #define __KMA_IMPL__
 
 /************System include***********************************************/
 #include <assert.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 /************Private include**********************************************/
 #include "kma_page.h"
