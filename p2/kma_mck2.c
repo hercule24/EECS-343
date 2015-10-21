@@ -99,7 +99,7 @@ int roundUp(size_t size)
   int high = FREE_LIST_SIZE - 1;
   int middle;
   int p;
-  while (low < high) {
+  while (low < high - 1) {
     middle = (high + low) / 2;
     p = (int) pow(2, middle);
     if (size > p) {
@@ -108,6 +108,7 @@ int roundUp(size_t size)
       high = middle;
     }
   }
+  return high;
 }
 
 void kma_free(void* ptr, kma_size_t size)
