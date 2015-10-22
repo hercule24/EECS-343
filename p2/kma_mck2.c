@@ -42,7 +42,7 @@
  
  ***************************************************************************/
 
-#define KMA_MCK2
+//#define KMA_MCK2
 #ifdef KMA_MCK2
 #define __KMA_IMPL__
 
