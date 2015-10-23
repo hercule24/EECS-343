@@ -1,8 +1,8 @@
 /***************************************************************************
  *  Title: Kernel Memory Allocator
  * -------------------------------------------------------------------------
- *    Purpose: Kernel memory allocator based on the McKusick-Karels
- *              algorithm
+ *    Purpose: Kernel memory allocator based on the power-of-two free list
+ *             algorithm
  *    Author: Stefan Birrer
  *    Copyright: 2004 Northwestern University
  ***************************************************************************/
@@ -41,19 +41,14 @@
  Project Group: NetID1, NetID2, NetID3
  
  ***************************************************************************/
-
-//<<<<<<< HEAD
 //#define KMA_MCK2
-//=======
-//>>>>>>> 96e951fca6e74ea4405c12cf794e099e38eb9b31
 #ifdef KMA_MCK2
 #define __KMA_IMPL__
 
 /************System include***********************************************/
 #include <assert.h>
 #include <stdlib.h>
-#include <math.h>
-
+#include <stdio.h>
 /************Private include**********************************************/
 #include "kma_page.h"
 #include "kma.h"
@@ -64,59 +59,218 @@
  *  variables should be in all lower case. When initializing
  *  structures and arrays, line everything up in neat columns.
  */
-#define FREE_LIST_SIZE 14;
 
-typedef struct node
-{
-  struct node *next;
-} Node;
-
-typedef char Byte;
 /************Global Variables*********************************************/
-Byte *KMEMSIZES = NULL;
-Node *FREE_LIST_ARR = NULL;
+void ** FREE_LIST_HEAD = NULL;
+bool INIT = FALSE;
+int PAGE_COUNT = 0;
+kma_page_t * FREEPAGE = NULL;
+//int REQUEST_COUNT = 0;
+//int FREE_COUNT = 0;
 /************Function Prototypes******************************************/
-int roundUp(size_t size);
+void initFreeList();
+size_t roundUp(size_t size);
+int diff(size_t size);
+void* initNewPage(size_t size, void** entry);
+void* getBuffer(size_t size, void** entry);
+void derefPage(void* page, size_t size);
+void insertAtHead(void* ptr, size_t size);
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
 
 void* kma_malloc(kma_size_t size)
 {
-  if (size < sizeof(Node)) {
-    size = sizeof(Node);
+  //printf("REQUEST_COUNT: %d\n", REQUEST_COUNT);
+ // REQUEST_COUNT++;
+  if (!INIT) { //first time using malloc
+    initFreeList();
+    INIT = TRUE;
+  //printf("PAGE_COUNT+1 by initFreeList: %d\n",PAGE_COUNT);
   }
-
-  if (KMEMSIZES == NULL) {
-    kma_page_t *page = get_page();
-    *((kma_page_t**) page->ptr) = page;
-    KMEMSIZES = (Byte *) ((size_t) page->ptr + sizeof(kma_page_t *));
-    FREE_LIST_ARR = (Node *) ((size_t) KMEMSIZES + MAXPAGES);
-    size_t remaining_size = PAGESIZE - sizeof(kma_page_t *) - MAXPAGES * sizeof(Byte) - sizeof(size_t) * FREE_LIST_SIZE;
+  size = roundUp(size);
+  if(diff(size) > 8) return NULL; //larger than 8192
+  //if(diff(size) == 8) { 
+   // kma_page_t * page = get_page();
+    //*((kma_page_t**) page->ptr) = page;
+    //PAGE_COUNT++;
+    //printf("malloc: %d, %d,page = %d\n", diff(size), page->ptr, page);
+    //return page->ptr; //8192
+ // }
+  void** entry = FREE_LIST_HEAD + diff(size); 
+ // printf("entry = %d\n", *entry);
+  if (*entry == NULL) { //allocate a new page and set the whole page same as size
+  //printf("1.entry = %d\n", *entry);
+ // printf("PAGE_COUNT will be + 1 by initNewPage: %d\n",PAGE_COUNT);
+    return initNewPage(size, entry);
+  } else { //has free buffers
+  //printf("2.entry = %d\n", *entry);
+    return getBuffer(size, entry);
   }
-}
-
-int roundUp(size_t size)
-{
-  int low = 0;
-  int high = FREE_LIST_SIZE - 1;
-  int middle;
-  int p;
-  while (low < high - 1) {
-    middle = (high + low) / 2;
-    p = (int) pow(2, middle);
-    if (size > p) {
-      low = middle;
-    } else {
-      high = middle;
-    }
-  }
-  return high;
 }
 
 void kma_free(void* ptr, kma_size_t size)
 {
-  ;
+ // printf("FREE_COUNT: %d\n", FREE_COUNT);
+ // FREE_COUNT++;
+  size = roundUp(size);
+  kma_page_t * page = *((kma_page_t **) BASEADDR(ptr));
+  if (diff(size) == 8) { //if 8192, free the page
+ //   printf("diff(size) = %d\n", diff(size));
+  //  printf("ptr = %d,page = %d\n", ptr, page);
+   // printf("page size = %d\n", page->size);
+   // printf("page = %d\n", page);
+    free_page(page);
+    PAGE_COUNT--;
+  //} else {
+  //  page->size += size;
+ //   printf("free: page addr = %d, size = %d\n", page->ptr, page->size);
+   // if(page->size == PAGESIZE) { 
+   //   free_page(page);
+   //   PAGE_COUNT--;
+  } else {
+    page->size += size;
+    if (page->size == PAGESIZE - sizeof(kma_page_t*)) {
+  //    printf("page size = %d\n", page->size);
+      derefPage(page->ptr, size); //if page is made of free buffers, derefence the buffer in freelist
+      free_page(page);
+      PAGE_COUNT--;
+    } else {  //not all free, give the buffer back to freelist
+      insertAtHead(ptr, size);
+    }
+  }
+//}
+  //free everything
+  if(PAGE_COUNT == 1) {
+    free_page(FREEPAGE);
+    INIT = FALSE;
+    PAGE_COUNT = 0;
+    FREE_LIST_HEAD = NULL;
+  }
+ // printf("PAGE_COUNT: %d\n",PAGE_COUNT);
 }
 
-#endif // KMA_MCK2
+void initFreeList() {
+  kma_page_t * page = get_page();
+  *((kma_page_t**) page->ptr) = page;
+  PAGE_COUNT++;
+  FREEPAGE = page;
+  FREE_LIST_HEAD = page->ptr + sizeof(void*); 
+  * FREE_LIST_HEAD = NULL;
+  for (int i = 1; i <= 8; i++) { //32 - 4096
+    *(FREE_LIST_HEAD + i) = NULL;
+    //printf(" %d\n",FREE_LIST_HEAD + i);
+  }
+  /*size_t n = 1 << 12; //4096
+   // printf("size = %d\n",page->size);
+  void* base = page->ptr + 10 * sizeof(void*); //beginning of free space
+  page->size -= sizeof(void *) * 10;//10 more  pointers
+  while (page->size >= n) { //4096. 2048, 1024, 512, ....
+   // printf("n = %zu, size = %d\n",n, page->size);
+    page->size -= n;
+    base += n / sizeof(void*);
+    * (FREE_LIST_HEAD + diff(n)) = base;
+    * (void **)base = NULL;
+    n >>= 1;
+  }*/
+  //page->size = PAGESIZE - sizeof(void *) * 10;
+   // printf("page = %d, %d, %d\n",page, page->ptr + 1, FREE_LIST_HEAD);
+}
+
+size_t roundUp(size_t size) {
+  //size_t res = size + sizeof(void *);
+  size_t n = 1 << 5;
+   // printf("n = %zu\n",n);
+  while (size > n) {
+    n <<= 1;
+  }
+ // printf("After RoundUp: n = %zu\n",n);
+  return n;
+}
+
+int diff(size_t size) {
+  size_t base = 1 << 5;
+  int count = 0;
+  while (size > base) {
+    base <<= 1;
+    count ++;
+  }
+ //   printf("diff :count = %d\n",count);
+  return count;
+}
+
+void* initNewPage(size_t size, void** entry) {
+  kma_page_t * page = get_page();
+  *((kma_page_t**) page->ptr) = page;
+  PAGE_COUNT++;
+  //printf("initNP: page addr = %d\n", page->ptr);
+  //set header points to entry
+ // *((void **)(page->ptr + sizeof(void *))) = entry;
+  if(diff(size) < 8) {
+    size_t cur = 0;
+    void* next = NULL;
+    int count = (page->size - sizeof(void *)) / size - 1;
+    while (count > 0) { //can add more than 1 buffer
+      cur += size;
+      if (*entry == NULL) { //first time append buffer
+        *entry = page->ptr + sizeof(void *) + cur;
+        next = *entry;
+      }
+      else {
+        *(void **)next = page->ptr + sizeof(void *) + cur;
+        next = *(void **)next;
+      }
+      if(count == 1) { //last one put an NULL sign
+	*(void **)next = NULL;
+      }
+      count--;
+    }
+  }
+  page->size = PAGESIZE - sizeof(void*) - size;
+  //printf("initNP: page size = %d\n", page->size);
+  //printf("initNP: return addr = %d\n", page->ptr + 2 * sizeof(void *));
+  return (void *) (page->ptr + sizeof(void*));
+}
+
+void* getBuffer(size_t size, void** entry) {
+  void* cur = *entry;
+ // printf("cur = %d\n", cur);
+  void* next = *(void **)cur;
+ // printf("next = %d\n", next);
+  //set cur points to entry
+ // *(void **)cur = entry;
+ // printf("GB: entry = %d\n", entry);
+  //set entry points to next buffer
+  *entry = next;
+  kma_page_t * page = *((kma_page_t **) BASEADDR(cur));
+ // printf("page = %d\n", BASEADDR(cur));
+  page->size -= size; 
+ // printf("getBuffer: cur + 1, cur= %d, %d\n", cur + 1, cur + sizeof(void *));
+  return cur;
+}
+
+void derefPage(void* page, size_t size) {
+  void** pre = FREE_LIST_HEAD + diff(size);
+  void* cur = *pre;
+  while (cur != NULL) {
+    if (BASEADDR(cur) == page) {
+      *pre = *(void **)cur; //remove from freelist
+    } else {
+      pre = cur; //move on
+    }
+    cur = *(void **)cur;
+  }
+}
+
+void insertAtHead(void* ptr, size_t size) {
+  void** entry = FREE_LIST_HEAD + diff(size); //utilize size as the mck2 array
+  //void** entry = *(void ***)(ptr - 1); //header points to entry
+  //printf("iAH: entry = %d, ptr - 1 = %d, %d\n", entry, ptr - 1, ptr);
+  void* next = *entry;
+  //printf("iAH: next, *entry = %d, %d\n", next, *entry);
+  *entry = ptr; //set entry points to self
+ // printf("iAH: *entry = %d, ptr - 1 = %d\n", *entry, ptr - 1);
+  *(void **)ptr = next; //set self points to the next buffer
+//  printf("iAH: next, *entry = %d, %d\n", next, ptr - 1);
+}
+#endif // KMA_P2FL

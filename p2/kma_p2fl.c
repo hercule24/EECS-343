@@ -114,10 +114,11 @@ void kma_free(void* ptr, kma_size_t size)
   } else {
     page->size += size;
  //   printf("free: page addr = %d, size = %d\n", page->ptr, page->size);
-    if(page->size == PAGESIZE) { //8192 case
-      free_page(page);
-      PAGE_COUNT--;
-    } else if (page->size == PAGESIZE - sizeof(kma_page_t*)) {
+   // if(page->size == PAGESIZE) { //8192 case
+    //  free_page(page);
+     // PAGE_COUNT--;
+    //} else
+    if (page->size == PAGESIZE - sizeof(kma_page_t*)) {
   //    printf("page size = %d\n", page->size);
       derefPage(page->ptr, size); //if page is made of free buffers, derefence the buffer in freelist
       free_page(page);
@@ -192,20 +193,24 @@ void* initNewPage(size_t size, void** entry) {
   //printf("initNP: page addr = %d\n", page->ptr);
   //set header points to entry
   *((void **)(page->ptr + sizeof(void *))) = entry;
-  if(diff(size) < 3) {
-    size_t cur = 1;
+  if(diff(size) < 8) {
+    size_t cur = 0;
     void* next = NULL;
-    while (page->size >= 2 * size + sizeof(void *)) { //can add more than 1 buffer
-      cur += size/sizeof(void *);
+    int count = (page->size - sizeof(void*)) / size - 1;
+    while (count > 0) { //can add more than 1 buffer
+      cur += size;
       if (*entry == NULL) { //first time append buffer
-        *entry = (void *)(page->ptr + cur * sizeof(void *));
+        *entry = page->ptr + cur  + sizeof(void *);
         next = *entry;
       }
       else {
-        *(void **)next = page->ptr + cur * sizeof(void *);
+        *(void **)next = page->ptr + cur + sizeof(void *);
         next = *(void **)next;
       }
-      page->size -= size;
+      if(count == 1) {
+        *(void **)next = NULL;
+      }
+      count--;
     }
   }
   page->size = size == PAGESIZE? 0 : PAGESIZE - sizeof(void*) - size;
