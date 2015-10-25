@@ -1,0 +1,27 @@
+power of 2 free list algorithm:
+utilization factor: (using plot...TODO)
+Worst free latency happens when we free the last allocated block in the
+page. Since we need to free the page, we need to remove all the free 
+blocked recorded in the free list. To traverse the free list for certain
+size entry, it taks O(n) where n is the size of the specific free list.
+
+Average free latency is O(1). To free a block, since we know the size,
+we can directly insert it in the beginning of the specific free list.
+Amortized latency is thus O(1).
+
+Worst alloc latency happens when the specific free list is empty, then
+we need to get a new page and separate the whole page into the same size
+and link them together into the free list. It takes O(m) where m is the
+number of blocks we can split the page into.
+
+Average alloc latency is O(1). To alloc a block, we can directly assign
+the first block pointed by the specific free list. Amortized latency is
+O(1).
+
+MCK2:
+utiliazation factor: (using plot...TODO)
+Worst/Average free/alloc latencies are the same as P2FL mentioned above.
+Because the only improvement MCK2 made is remove the first pointer used
+by allocated memories to point back at the free list entry, thus makes 
+requests sizing at exact power of 2 efficient. Other than that, it's the
+same. 
