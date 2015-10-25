@@ -255,7 +255,7 @@ void initFirstPage()
   // set the head base
   HEAD_BASE = (Node **) first_page->ptr;
   // make all headers NULL
-  memset(first_page->ptr, 0, NUM_HEADERS_BYTES);
+  //memset(first_page->ptr, 0, NUM_HEADERS_BYTES);
   // mark the first 4 bit as allocated
   //memset(BITMAP_BASE, 0x0f, 1);
 
@@ -453,24 +453,39 @@ void kma_free(void* ptr, kma_size_t size)
   node->pre = NULL;
 
   //void *map_ptr = (void *) ((size_t) BITMAP_BASE + node->page_id * SINGLE_BITMAP_SIZE);
-  Node *res = NULL;
+  Node *res = node;
 
   if ((size_t) BASEADDR(ptr) == (size_t) ptr) {
     //node->start_bit = 0;
     //addToFreeList(node);
     //setZeros(map_ptr, NUM_OF_BITS(size), 0);
-    Node *right = (Node *) ((size_t) node + node->size);
-    res = rightCoalesce(node, right);
+    Node *right = (Node *) ((size_t) res + res->size);
+    res = rightCoalesce(res, right);
   } else {
     //node->start_bit = START_BIT(ptr);
     //Node *res = rightCoalesce(node, right);
     //Node *left = (Node *) ((size_t) res - res->size);
     //res = leftCoalesce(left, res);
     //setZeros(map_ptr, NUM_OF_BITS(size), node->start_bit);
-    Node *left = (Node *) ((size_t) node - node->size);
-    res = leftCoalesce(left, node);
-    Node *right = (Node *) ((size_t) res + res->size);
+    
+
+    //while (1) {
+    //  Node *right = (Node *) ((size_t) res + res->size);
+    //  res = rightCoalesce(res, right);
+
+    //  Node *left = (Node *) ((size_t) res - res->size);
+    //  res = leftCoalesce(left, res);
+    //}
+    Node *right = (Node *) ((size_t) node + node->size);
+    res = rightCoalesce(node, right);
+    Node *left = (Node *) ((size_t) res - res->size);
+    res = leftCoalesce(left, res);
+    right = (Node *) ((size_t) res + res->size);
     res = rightCoalesce(res, right);
+    left = (Node *) ((size_t) res - res->size);
+    res = leftCoalesce(left, res);
+    //right = (Node *) ((size_t) res + res->size);
+    //res = rightCoalesce(res, right);
   }
 
   if (NUM_IN_USE == 1) {
@@ -518,7 +533,6 @@ void kma_free(void* ptr, kma_size_t size)
       addToFreeList(res);
     }
   }
-
 }
 
 bool canRightCoalesce(Node *left, Node *right)
