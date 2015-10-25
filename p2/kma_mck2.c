@@ -126,7 +126,8 @@ void initFreeList() {
   FREEPAGE = page;
   FREE_LIST_HEAD = page->ptr + sizeof(void*); 
   * FREE_LIST_HEAD = NULL;
-  for (int i = 1; i <= 8; i++) { //32 - 4096
+  int i = 0;
+  for (i = 1; i <= 8; i++) { //32 - 4096
     *(FREE_LIST_HEAD + i) = NULL;
   }
 }
