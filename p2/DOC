@@ -1,7 +1,7 @@
 NOTE: Implemented extra credit algorithm: p2fl and mck2.
 
 power of 2 free list algorithm:
-utilization factor: (using plot...TODO)
+utilization factor: 1.021538
 Worst free latency happens when we free the last allocated block in the
 page. Since we need to free the page, we need to remove all the free 
 blocked recorded in the free list. To traverse the free list for certain
@@ -21,9 +21,30 @@ the first block pointed by the specific free list. Amortized latency is
 O(1).
 
 MCK2:
-utiliazation factor: (using plot...TODO)
+utiliazation factor: 1.016246
 Worst/Average free/alloc latencies are the same as P2FL mentioned above.
 Because the only improvement MCK2 made is remove the first pointer used
 by allocated memories to point back at the free list entry, thus makes 
 requests sizing at exact power of 2 efficient. Other than that, it's the
 same. 
+
+Resource Map:
+utilization factor: 0.294727
+First fit is used in our implementation. Free lists are sorted in increasing 
+address order. Average free/alloc latencies are O(n). When allocating, we
+need to traverse the the free list to find the first buffer whose size is
+larger than requested and allocate this buffer. When freeing, we need to 
+traverse the free list to find the first buffer whose address is larger than 
+the buffer and insert the freed buffer before that buffer. Worst case 
+free/alloc latencies are O(n), because when freeing/allocating, sometimes 
+we need to traver the whole list to find the target.
+
+Buddy System:
+utilization factor: 0.628560
+In our implementation, the first 128 bytes of a special page are allocated
+to hold the pointers to free lists of power of 2 sizes. Then the rest of the
+page is split into power of two sized buffers and add them to the free list.
+When freeing, we add the block to the head of the corresponding free list.
+When allocating, we remove the head of the corresponding free list. Even if
+coalescing and splitting are concerned, both of them takes constant time. So
+the average/worst case free/alloc latencies are O(1).
