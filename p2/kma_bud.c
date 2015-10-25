@@ -46,7 +46,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
 
 /************Private include**********************************************/
 #include "kma_page.h"
@@ -90,6 +89,7 @@ int NUM_IN_USE = 0;
 kma_page_t **BASE = NULL;
 void *BITMAP_BASE = NULL;
 Node **HEAD_BASE = NULL;
+int NEXT_PAGE_ID = 0;
 
 /************Function Prototypes******************************************/
 void* getFromNewPage(kma_size_t);
@@ -98,6 +98,8 @@ void addToFreeList(Node*);
 void* getFromFreeList(kma_size_t);
 void setOnes(void *map_ptr, int num_bits, int start);
 void setZeros(void *map_ptr, int num_bits, int start);
+int kma_log2(int);
+int roundUp(int);
 Node* rightCoalesce(Node *, Node *);	
 Node* leftCoalesce(Node *, Node *);	
 /************External Declaration*****************************************/
@@ -110,16 +112,18 @@ void* kma_malloc(kma_size_t size)
     return NULL;
   }
 
-  if (size < MIN_BLOCK_SIZE) {
+  if (size <= MIN_BLOCK_SIZE) {
     size = MIN_BLOCK_SIZE;
+  } else {
+    size = roundUp(size);
   }
 
   if (NUM_IN_USE == 0) {
     // set up the kma_page_t book keeping
     // set NULL for all pointers to kma_page_t
     kma_page_t *book_page = get_page();
-    memset(book_page->ptr, 0, NUM_BOOK_PAGES * PAGESIZE);
     BASE = (kma_page_t **) book_page->ptr;
+    BASE[0] = book_page;
     //memset((void *) BASE, 0, NUM_META_PAGES * PAGESIZE);
 
     int i;
@@ -156,6 +160,10 @@ Node* getFromFreeListHelper(int offset, kma_size_t size)
     } else {
       Node *res = getFromFreeListHelper(offset + 1, size << 1);
 
+      if (res == NULL) {
+        return NULL;
+      }
+
       Node *node = (Node *) ((size_t) res + size);
       //node->start_bit = res->start_bit + NUM_OF_BITS(size);
       //node->page_id = res->page_id;
@@ -181,7 +189,7 @@ Node* getFromFreeListHelper(int offset, kma_size_t size)
 
 void* getFromFreeList(kma_size_t size)
 {
-  int offset = log2(size);
+  int offset = kma_log2(size);
   Node *p = HEAD_BASE[offset];
 
   //int num_bits = NUM_OF_BITS(size);
@@ -192,6 +200,10 @@ void* getFromFreeList(kma_size_t size)
       return NULL;
     } else {
       Node *res = getFromFreeListHelper(offset + 1, size << 1);
+
+      if (res == NULL) {
+        return NULL;
+      }
       
       Node *node = (Node *) ((size_t) res + size);
       //node->start_bit = res->start_bit + NUM_OF_BITS(size);
@@ -232,6 +244,7 @@ void initFirstPage()
   BASE[NUM_BOOK_PAGES] = first_page;
 
   ((Node *) (first_page->ptr))->status = ALLOCATED;
+  ((Node *) (first_page->ptr))->offset = 0;
   ((Node *) (first_page->ptr))->size = -1;
   ((Node *) (first_page->ptr))->next = NULL;
   ((Node *) (first_page->ptr))->pre = NULL;
@@ -267,7 +280,8 @@ void* getFromNewPage(kma_size_t size)
 {
   kma_page_t *page = get_page();
   //BASE[NUM_META_PAGES + NUM_IN_USE] = page;
-  BASE[NUM_BOOK_PAGES + NUM_IN_USE] = page;
+  int page_id = PAGE_ID(page->ptr);
+  BASE[NUM_BOOK_PAGES + page_id] = page;
   NUM_IN_USE++;
   //void *map_ptr = (void *) ((size_t) BITMAP_BASE + NUM_IN_USE * MIN_BLOCK_SIZE);
   void *res = page->ptr;
@@ -358,7 +372,7 @@ void setZeros(void *ptr, int num_bits, int start)
 
 void addToFreeList(Node *node)
 {
-  int offset = log2(node->size);
+  int offset = kma_log2(node->size);
   node->offset = offset;
   Node *head = HEAD_BASE[offset];
 
@@ -374,16 +388,45 @@ void addToFreeList(Node *node)
 void freePageHelper(void *ptr)
 {
   int page_id = PAGE_ID(ptr);
-  kma_page_t *page = BASE[page_id];
+  kma_page_t *page = BASE[NUM_BOOK_PAGES + page_id];
   free_page(page);
+  //BASE[NUM_BOOK_PAGES + page_id] = NULL;
   NUM_IN_USE--;
 
   if (NUM_IN_USE == 1) {
     Node *node = (Node *) ((size_t) HEAD_BASE + NUM_HEADERS_BYTES);
-    if (node->size == PAGESIZE - NUM_HEADERS_BYTES) {
+
+    //if (right->status == FREE) {
+    //  ((Node *) HEAD_BASE)->status = FREE;
+    //  ((Node *) HEAD_BASE)->size = NUM_HEADERS_BYTES;
+    //  Node *left = (Node *) HEAD_BASE;
+    //  Node *res = rightCoalesce(left, right);
+    //  if (res->size == PAGESIZE) {
+    //    int i;
+    //    for (i = 0; i < NUM_BOOK_PAGES + 1; i++) {
+    //      free_page(BASE[i]);
+    //    }
+    //  } else {
+    //    ((Node *) HEAD_BASE)->status = ALLOCATED;
+    //    ((Node *) HEAD_BASE)->size = -1;
+    //  }
+    //}
+    int size = NUM_HEADERS_BYTES;
+
+    while (BASEADDR(node) == BASEADDR(HEAD_BASE)) {
+      if (node->status == FREE) {
+        size += node->size;
+        node = (Node *) ((size_t) node + node->size);
+      } else {
+        break;
+      }
+    }
+
+    if (size == PAGESIZE) {
       int i;
       for (i = 0; i < NUM_BOOK_PAGES + 1; i++) {
         free_page(BASE[i]);
+        //BASE[i] = NULL;
       }
     }
   }
@@ -391,8 +434,15 @@ void freePageHelper(void *ptr)
 
 void kma_free(void* ptr, kma_size_t size)
 {
+  if (size <= MIN_BLOCK_SIZE) {
+    size = MIN_BLOCK_SIZE;
+  } else {
+    size = roundUp(size);
+  }
+
   if (size == PAGESIZE) {
     freePageHelper(ptr);
+    return;
   }
 
   Node *node = (Node *) ptr;
@@ -423,18 +473,88 @@ void kma_free(void* ptr, kma_size_t size)
     res = rightCoalesce(res, right);
   }
 
-  if (res->size == PAGESIZE) {
-    freePageHelper(res);
+  if (NUM_IN_USE == 1) {
+    Node *node = (Node *) ((size_t) HEAD_BASE + NUM_HEADERS_BYTES);
+
+    //if (right->status == FREE) {
+    //  ((Node *) HEAD_BASE)->status = FREE;
+    //  ((Node *) HEAD_BASE)->size = NUM_HEADERS_BYTES;
+    //  Node *left = (Node *) HEAD_BASE;
+    //  Node *res = rightCoalesce(left, right);
+    //  if (res->size == PAGESIZE) {
+    //    int i;
+    //    for (i = 0; i < NUM_BOOK_PAGES + 1; i++) {
+    //      free_page(BASE[i]);
+    //    }
+    //  } else {
+    //    ((Node *) HEAD_BASE)->status = ALLOCATED;
+    //    ((Node *) HEAD_BASE)->size = -1;
+    //  }
+    //}
+    int size = NUM_HEADERS_BYTES;
+
+    while (BASEADDR(node) == BASEADDR(HEAD_BASE)) {
+      if (node->status == FREE) {
+        size += node->size;
+        node = (Node *) ((size_t) node + node->size);
+      } else {
+        break;
+      }
+    }
+
+    if (size == PAGESIZE) {
+      int i;
+      for (i = 0; i < NUM_BOOK_PAGES + 1; i++) {
+        free_page(BASE[i]);
+        //BASE[i] = NULL;
+      }
+    } else {
+      addToFreeList(res);
+    }
   } else {
-    addToFreeList(res);
+    if (res->size == PAGESIZE) {
+      freePageHelper(res);
+    } else {
+      addToFreeList(res);
+    }
+  }
+
+}
+
+bool canRightCoalesce(Node *left, Node *right)
+{
+  if (BASEADDR(left) == BASEADDR(right)
+      && right->status == FREE && right->size == left->size) {
+    int size_sum = left->size + right->size; 
+    if (((size_t) left) % size_sum == 0) {
+      return TRUE;
+    } else{
+      return FALSE;
+    }
+  } else {
+    return FALSE;
+  }
+}
+
+bool canLeftCoalesce(Node *left, Node *right)
+{
+  if (BASEADDR(left) == BASEADDR(right)
+      && left->status == FREE && right->size == left->size) {
+    int size_sum = left->size + right->size; 
+    if (((size_t) left) % size_sum == 0) {
+      return TRUE;
+    } else{
+      return FALSE;
+    }
+  } else {
+    return FALSE;
   }
 }
 
 Node* rightCoalesce(Node *left, Node *right)
 {
   while (1) {
-    if (BASEADDR(left) == BASEADDR(right) &&
-        right->status == FREE && right->size == left->size) {
+    if (canRightCoalesce(left, right)) {
       Node *pre = right->pre;
       // if right is the head
       if (pre == NULL) {
@@ -466,8 +586,7 @@ Node* rightCoalesce(Node *left, Node *right)
 Node* leftCoalesce(Node *left, Node *right)
 {
   while (1) {
-    if (BASEADDR(left) == BASEADDR(right) &&
-        left->status == FREE && right->size == left->size) {
+    if (canLeftCoalesce(left, right)) {
       Node *pre = left->pre;
       // if left is the head
       if (pre == NULL) {
@@ -490,11 +609,36 @@ Node* leftCoalesce(Node *left, Node *right)
       right = left;
       left = (Node *) ((size_t) left - left->size);
     } else {
-      break;
+      return right;
     }
   }
 
   return left;
+}
+
+int kma_log2(int size)
+{
+  int k = 0;
+  while (size != 1) {
+    size >>= 1;
+    k++;
+  }
+  return k;
+}
+
+int roundUp(int size) {
+  int low = 0;
+  int high = 13;
+  int middle;
+  while (low < high - 1) {
+    middle = (low + high) / 2;
+    if ((1 << middle) < size) {
+      low = middle;
+    } else {
+      high = middle; 
+    }
+  }
+  return (1 << high);
 }
 
 #endif // KMA_BUD
