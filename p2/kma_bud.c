@@ -37,7 +37,6 @@
  Project Group: NetID1, NetID2, NetID3
  
  ***************************************************************************/
-#define KMA_BUD
 #ifdef KMA_BUD
 #define __KMA_IMPL__
 
