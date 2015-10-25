@@ -119,25 +119,15 @@ void* kma_malloc(kma_size_t size)
   }
 
   if (NUM_IN_USE == 0) {
-    // set up the kma_page_t book keeping
-    // set NULL for all pointers to kma_page_t
     kma_page_t *book_page = get_page();
     BASE = (kma_page_t **) book_page->ptr;
     BASE[0] = book_page;
-    //memset((void *) BASE, 0, NUM_META_PAGES * PAGESIZE);
 
     int i;
     for (i = 1; i < NUM_BOOK_PAGES; i++) {
       BASE[i] = get_page();
     }
     
-    //kma_page_t *bitmap_page = get_page();
-    //BASE[NUM_BOOK_PAGES] = bitmap_page;
-    //BITMAP_BASE = (void *) ((size_t) BASE + NUM_BOOK_PAGES * PAGESIZE);
-    //// set 1 for all book keeping entries
-    //memset(BITMAP_BASE, 0xff, NUM_META_PAGES * SINGLE_BITMAP_SIZE) ;
-    //BITMAP_BASE = (void *) ((size_t) BITMAP_BASE + NUM_META_PAGES * SINGLE_BITMAP_SIZE);
-  
     initFirstPage();
 
     return getFromNewPage(size);
@@ -165,8 +155,6 @@ Node* getFromFreeListHelper(int offset, kma_size_t size)
       }
 
       Node *node = (Node *) ((size_t) res + size);
-      //node->start_bit = res->start_bit + NUM_OF_BITS(size);
-      //node->page_id = res->page_id;
       node->status = FREE;
       node->size = size;
       node->pre = NULL;
@@ -192,9 +180,6 @@ void* getFromFreeList(kma_size_t size)
   int offset = kma_log2(size);
   Node *p = HEAD_BASE[offset];
 
-  //int num_bits = NUM_OF_BITS(size);
-  //void *map_ptr = (void *) ((size_t) BITMAP_BASE + p->page_id * SINGLE_BITMAP_SIZE);
-
   if (p == NULL) {
     if (offset == MAX_OFFSET) {
       return NULL;
@@ -206,25 +191,17 @@ void* getFromFreeList(kma_size_t size)
       }
       
       Node *node = (Node *) ((size_t) res + size);
-      //node->start_bit = res->start_bit + NUM_OF_BITS(size);
-      //node->page_id = res->page_id;
       node->status = FREE;
       node->size = size;
       node->pre = NULL;
       node->next = NULL;
       addToFreeList(node);
       
-      //setOnes(map_ptr, num_bits, res->start_bit);
       ((Node *) res)->status = ALLOCATED;
       ((Node *) res)->size = -1;
       return res;
     }
   } else {
-    //if ((size_t) p == (size_t) BASEADDR(p)) {
-    //  setOnes(map_ptr, num_bits);
-    //} else {
-    //  setOnes(map_ptr, num_bits, p->start_bit);
-    //}
     Node *next = p->next;
     HEAD_BASE[offset] = next;
     if (next != NULL) {
@@ -240,7 +217,6 @@ void* getFromFreeList(kma_size_t size)
 void initFirstPage()
 {
   kma_page_t *first_page = get_page();
-  //BASE[NUM_META_PAGES] = first_page;
   BASE[NUM_BOOK_PAGES] = first_page;
 
   ((Node *) (first_page->ptr))->status = ALLOCATED;
@@ -250,26 +226,15 @@ void initFirstPage()
   ((Node *) (first_page->ptr))->pre = NULL;
 
   kma_size_t page_size = first_page->size;
-  // first mark all of them as not allocated
-  //memset(BITMAP_BASE, 0, SINGLE_BITMAP_SIZE);
-  // set the head base
   HEAD_BASE = (Node **) first_page->ptr;
-  // make all headers NULL
-  //memset(first_page->ptr, 0, NUM_HEADERS_BYTES);
-  // mark the first 4 bit as allocated
-  //memset(BITMAP_BASE, 0x0f, 1);
 
   while (page_size >= NUM_HEADERS_BYTES << 1) {
     page_size = page_size >> 1;
-    //int num_bits = page_size / MIN_BLOCK_SIZE;
     Node *node = (Node *) ((size_t) first_page->ptr + page_size);
     node->status = FREE;
     node->size = page_size;
     node->pre = NULL;
     node->next = NULL;
-    //node->page_id = NUM_IN_USE;
-    //node->start_bit = num_bits;
-    //node->end_bit = num_bits + num_bits;
     addToFreeList(node);
   }
 
@@ -279,23 +244,17 @@ void initFirstPage()
 void* getFromNewPage(kma_size_t size)
 {
   kma_page_t *page = get_page();
-  //BASE[NUM_META_PAGES + NUM_IN_USE] = page;
   int page_id = PAGE_ID(page->ptr);
   BASE[NUM_BOOK_PAGES + page_id] = page;
   NUM_IN_USE++;
-  //void *map_ptr = (void *) ((size_t) BITMAP_BASE + NUM_IN_USE * MIN_BLOCK_SIZE);
   void *res = page->ptr;
   ((Node *) res)->status = ALLOCATED;
   ((Node *) res)->size = -1;
   ((Node *) res)->next = NULL;
   ((Node *) res)->pre = NULL;
   if (size > PAGESIZE >> 1) {
-    // mark as allocated
-    //memset(map_ptr, 0xff, SINGLE_BITMAP_SIZE);
     return res;
   } else {
-    // mark as free page
-    //memset(map_ptr, 0, SINGLE_BITMAP_SIZE);
     int page_size = page->size;
 
     while (page_size >= MIN_BLOCK_SIZE << 1) {
@@ -307,12 +266,6 @@ void* getFromNewPage(kma_size_t size)
       node->pre = NULL;
       addToFreeList(node);
       if (size > page_size >> 1) {
-        //int num_bits = NUM_OF_BITS(page_size);
-        // mark num_bits as allocated
-        //setOnes(map_ptr, num_bits);
-        //node->page_id = NUM_IN_USE;
-        //node->start_bit = num_bits;
-        //node->end_bit = num_bits + num_bits;
         break;
       }
     }
@@ -390,27 +343,11 @@ void freePageHelper(void *ptr)
   int page_id = PAGE_ID(ptr);
   kma_page_t *page = BASE[NUM_BOOK_PAGES + page_id];
   free_page(page);
-  //BASE[NUM_BOOK_PAGES + page_id] = NULL;
   NUM_IN_USE--;
 
   if (NUM_IN_USE == 1) {
     Node *node = (Node *) ((size_t) HEAD_BASE + NUM_HEADERS_BYTES);
 
-    //if (right->status == FREE) {
-    //  ((Node *) HEAD_BASE)->status = FREE;
-    //  ((Node *) HEAD_BASE)->size = NUM_HEADERS_BYTES;
-    //  Node *left = (Node *) HEAD_BASE;
-    //  Node *res = rightCoalesce(left, right);
-    //  if (res->size == PAGESIZE) {
-    //    int i;
-    //    for (i = 0; i < NUM_BOOK_PAGES + 1; i++) {
-    //      free_page(BASE[i]);
-    //    }
-    //  } else {
-    //    ((Node *) HEAD_BASE)->status = ALLOCATED;
-    //    ((Node *) HEAD_BASE)->size = -1;
-    //  }
-    //}
     int size = NUM_HEADERS_BYTES;
 
     while (BASEADDR(node) == BASEADDR(HEAD_BASE)) {
@@ -426,8 +363,8 @@ void freePageHelper(void *ptr)
       int i;
       for (i = 0; i < NUM_BOOK_PAGES + 1; i++) {
         free_page(BASE[i]);
-        //BASE[i] = NULL;
       }
+      NUM_IN_USE = 0;
     }
   }
 }
@@ -446,66 +383,38 @@ void kma_free(void* ptr, kma_size_t size)
   }
 
   Node *node = (Node *) ptr;
-  //node->page_id = PAGE_ID(ptr);
   node->status = FREE;
   node->size = size;
   node->next = NULL;
   node->pre = NULL;
 
-  //void *map_ptr = (void *) ((size_t) BITMAP_BASE + node->page_id * SINGLE_BITMAP_SIZE);
   Node *res = node;
 
   if ((size_t) BASEADDR(ptr) == (size_t) ptr) {
-    //node->start_bit = 0;
-    //addToFreeList(node);
-    //setZeros(map_ptr, NUM_OF_BITS(size), 0);
     Node *right = (Node *) ((size_t) res + res->size);
     res = rightCoalesce(res, right);
   } else {
-    //node->start_bit = START_BIT(ptr);
-    //Node *res = rightCoalesce(node, right);
-    //Node *left = (Node *) ((size_t) res - res->size);
-    //res = leftCoalesce(left, res);
-    //setZeros(map_ptr, NUM_OF_BITS(size), node->start_bit);
-    
+    int prev_size = res->size;
 
-    //while (1) {
-    //  Node *right = (Node *) ((size_t) res + res->size);
-    //  res = rightCoalesce(res, right);
+    while (1) {
+      Node *right = (Node *) ((size_t) res + res->size);
+      res = rightCoalesce(res, right);
 
-    //  Node *left = (Node *) ((size_t) res - res->size);
-    //  res = leftCoalesce(left, res);
-    //}
-    Node *right = (Node *) ((size_t) node + node->size);
-    res = rightCoalesce(node, right);
-    Node *left = (Node *) ((size_t) res - res->size);
-    res = leftCoalesce(left, res);
-    right = (Node *) ((size_t) res + res->size);
-    res = rightCoalesce(res, right);
-    left = (Node *) ((size_t) res - res->size);
-    res = leftCoalesce(left, res);
-    //right = (Node *) ((size_t) res + res->size);
-    //res = rightCoalesce(res, right);
+
+      Node *left = (Node *) ((size_t) res - res->size);
+      res = leftCoalesce(left, res);
+
+      if (res->size != prev_size) {
+        prev_size = res->size;
+      } else {
+        break;
+      }
+    }
   }
 
   if (NUM_IN_USE == 1) {
     Node *node = (Node *) ((size_t) HEAD_BASE + NUM_HEADERS_BYTES);
 
-    //if (right->status == FREE) {
-    //  ((Node *) HEAD_BASE)->status = FREE;
-    //  ((Node *) HEAD_BASE)->size = NUM_HEADERS_BYTES;
-    //  Node *left = (Node *) HEAD_BASE;
-    //  Node *res = rightCoalesce(left, right);
-    //  if (res->size == PAGESIZE) {
-    //    int i;
-    //    for (i = 0; i < NUM_BOOK_PAGES + 1; i++) {
-    //      free_page(BASE[i]);
-    //    }
-    //  } else {
-    //    ((Node *) HEAD_BASE)->status = ALLOCATED;
-    //    ((Node *) HEAD_BASE)->size = -1;
-    //  }
-    //}
     int size = NUM_HEADERS_BYTES;
 
     while (BASEADDR(node) == BASEADDR(HEAD_BASE)) {
@@ -521,7 +430,6 @@ void kma_free(void* ptr, kma_size_t size)
       int i;
       for (i = 0; i < NUM_BOOK_PAGES + 1; i++) {
         free_page(BASE[i]);
-        //BASE[i] = NULL;
       }
     } else {
       addToFreeList(res);
