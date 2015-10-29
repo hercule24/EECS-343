@@ -515,7 +515,7 @@ void kma_free(void* ptr, kma_size_t size)
       NUM_IN_USE = 0;
     } 
   } else {
-    if (res == node_selected){
+    if (BASEADDR(res) == BASEADDR(node_selected)) {
       if (res->size == PAGESIZE) {
         freePageHelper(res);
       } 
