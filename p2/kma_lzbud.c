@@ -512,25 +512,23 @@ void kma_free(void* ptr, kma_size_t size)
       for (i = 0; i < NUM_BOOK_PAGES + 1; i++) {
         free_page(BASE[i]);
       }
+      NUM_IN_USE = 0;
     } 
-    // else {
-    //   if (isCoal == FALSE){
-    //     addToFreeList(res);
-    //   }
-    // }
   } else {
-    if (res->size == PAGESIZE) {
-      freePageHelper(res);
-    } 
-    // else {
-    //   if (isCoal == FALSE){
-    //     addToFreeList(res);
-    //   }
-    // }
-    if (node_selected != NULL){
-      if (node_selected->size == PAGESIZE) {
-        freePageHelper(node_selected);
+    if (res == node_selected){
+      if (res->size == PAGESIZE) {
+        freePageHelper(res);
       } 
+    }
+    else{
+      if (res->size == PAGESIZE) {
+        freePageHelper(res);
+      } 
+      if (node_selected != NULL){
+        if (node_selected->size == PAGESIZE) {
+          freePageHelper(node_selected);
+        } 
+      }
     }
   }
 }
