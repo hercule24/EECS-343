@@ -60,3 +60,25 @@ the average/worst case free/alloc latencies are O(1).
 
 Lazy Buddy System:
 utilization factor: 0.762371
+Our Lazy Buddy Syste implementation is mainly based on the Buddy System. One
+core difference between Buddy System is it uses another 128 bytes of a special
+page to hold the slack value of all sizes. Thus, totally 256 bytes of a page 
+are taken. If next operation is a block allocation request, if there is free
+block, we just allocate the first block in the free block list and remove it from
+the free block list. If this is a local free block, we increase the slack of this
+size by 2, if it is a global free block, we increase the slack by 1. If there
+is no free block for requested size, we just recursive split a larger block 
+until there is a free block of the same size. If there is no free block in the
+free block list, we just get it from a new page. In this case, the slack value
+of this requested size does not change, but slack value of other sizes may 
+change due to the recursive call. For the free part, there are three cases.
+The first case is slack value large than or equals to 2, we just mark it local
+free and add it to the free list, after that, slack value reduced by 2. 
+If slack value equals 1, we mark it gloabl free and add it to the free list,
+ but we also do coalescing if possible. After than, slack value reduced by 1.
+If the slack value equals 0, we free it globally and do coalescing, and we
+also select a local free block of same size from the free list, mark it
+global free and do coalsecing. The slack value remains after this  free
+ operation. since this algorithm is based on Buddy System, and avoid the
+frequent splitting and coalescing of block, the average case of free and
+allocation are also O(1).
