@@ -454,17 +454,20 @@ void kma_free(void* ptr, kma_size_t size)
     SLACK_BASE[offset] -= 2;
     node->status = FREE;
     res = node;
+    addToFreeList(res);
   } else if (SLACK_BASE[offset] == 1){
     //mark it globally free and free it globally, coalesce if possible
     SLACK_BASE[offset] -= 1;
     node->status = GFREE;
     res = node;
     Node ** nodePointer = &res;
+    addToFreeList(res);
     coalesce(nodePointer, isCoalPointer);
   } else{
     //mark it globally free and free it globally, coalesce if possible
     node->status = GFREE;
     res = node;
+    addToFreeList(res);
     Node ** nodePointer = &res;
     node_selected = updateFreeList(offset);
     countFreeListHelper(5);
@@ -509,19 +512,21 @@ void kma_free(void* ptr, kma_size_t size)
       for (i = 0; i < NUM_BOOK_PAGES + 1; i++) {
         free_page(BASE[i]);
       }
-    } else {
-      if (isCoal == FALSE){
-        addToFreeList(res);
-      }
-    }
+    } 
+    // else {
+    //   if (isCoal == FALSE){
+    //     addToFreeList(res);
+    //   }
+    // }
   } else {
     if (res->size == PAGESIZE) {
       freePageHelper(res);
-    } else {
-      if (isCoal == FALSE){
-        addToFreeList(res);
-      }
-    }
+    } 
+    // else {
+    //   if (isCoal == FALSE){
+    //     addToFreeList(res);
+    //   }
+    // }
     if (node_selected != NULL){
       if (node_selected->size == PAGESIZE) {
         freePageHelper(node_selected);
@@ -562,9 +567,6 @@ void freePageHelper(void *ptr)
 }
 
 void coalesce(Node ** headPointer, bool *isCoalPointer){
-  if (headPointer == NULL){
-    printf("bad access !!!! ALERT!!!\n");
-  }
   Node* head = *headPointer;
   if ((size_t) BASEADDR(head) == (size_t) head) {
     int prev_size = head->size;
@@ -636,6 +638,7 @@ void coalesce(Node ** headPointer, bool *isCoalPointer){
       }
 
       if (head->size != original_size && head->size != PAGESIZE){
+        original_size = head->size;
         addToFreeList(head);
       }
 
@@ -816,4 +819,3 @@ int roundUp(int size) {
 }
 
 #endif // KMA_BUD
-
