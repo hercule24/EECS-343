@@ -22,7 +22,7 @@ TEAM = `whoami`
 VERSION = `date +%Y%m%d%H%M%S`
 PROJ = kma
 
-COMPETITION = KMA_BUD
+COMPETITION = KMA_LZBUD
 
 CC = gcc
 MV = mv
@@ -31,7 +31,7 @@ RM = rm
 MKDIR = mkdir
 TAR = tar cvf
 COMPRESS = gzip
-CFLAGS = -g -Wall -D HAVE_CONFIG_H
+CFLAGS = -g -Wall -O2 -D HAVE_CONFIG_H
 
 DELIVERY = Makefile *.h *.c DOC
 PROGS = kma_dummy kma_rm kma_p2fl kma_mck2 kma_bud kma_lzbud

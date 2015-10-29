@@ -275,7 +275,6 @@ void* getFromNewPage(kma_size_t size)
 {
   kma_page_t *page = get_page();
   int page_id = PAGE_ID(page->ptr);
-  int offset;
   BASE[NUM_BOOK_PAGES + page_id] = page;
   NUM_IN_USE++;
   void *res = page->ptr;
@@ -290,7 +289,6 @@ void* getFromNewPage(kma_size_t size)
 
     while (page_size >= MIN_BLOCK_SIZE << 1) {
       page_size = page_size >> 1;
-      offset = kma_log2(page_size);
       Node *node = (Node *) ((size_t) page->ptr + page_size);
       node->status = GFREE;
       node->size = page_size;

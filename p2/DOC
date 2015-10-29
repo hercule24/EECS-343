@@ -57,3 +57,6 @@ When freeing, we add the block to the head of the corresponding free list.
 When allocating, we remove the head of the corresponding free list. Even if
 coalescing and splitting are concerned, both of them takes constant time. So
 the average/worst case free/alloc latencies are O(1).
+
+Lazy Buddy System:
+utilization factor: 0.762371
