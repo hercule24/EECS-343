@@ -82,8 +82,6 @@ typedef struct Node
 } Node;
 
 /************Global Variables*********************************************/
-//int id = -1;
-//int freeid = 0;
 int NUM_IN_USE = 0;
 kma_page_t **BASE = NULL;
 Node **HEAD_BASE = NULL;
@@ -114,40 +112,46 @@ Node* leftCoalesce(Node *, Node *);
 
 void* kma_malloc(kma_size_t size)
 { 
-  //id++;
   if (size > PAGESIZE) {
     return NULL;
   }
-
+  //round up to nearest power of 2
   if (size <= MIN_BLOCK_SIZE) {
     size = MIN_BLOCK_SIZE;
   } else {
     size = roundUp(size);
   }
 
+  //if this is the first malloc operation
   if (NUM_IN_USE == 0) {
     kma_page_t *book_page = get_page();
     BASE = (kma_page_t **) book_page->ptr;
     BASE[0] = book_page;
 
+    //assign four pages to store pointers to all other pages
     int i;
     for (i = 1; i < NUM_BOOK_PAGES; i++) {
       BASE[i] = get_page();
     }
     
+    //do initializaiotn to first actual page
     initFirstPage();
-
     return getFromNewPage(size);
   } else {
     void *res = getFromFreeList(size);
     if (res != NULL) {
       return res;
     } else {
+      //all larger free list are empty, request from a new page
       return getFromNewPage(size);
     }
   }
 }
 
+/*
+If we cannot get the required block from free list. We need to call
+this function to recusively split the larger block. 
+*/
 Node* getFromFreeListHelper(int offset, kma_size_t size)
 {
   Node *p = HEAD_BASE[offset];
@@ -184,6 +188,11 @@ Node* getFromFreeListHelper(int offset, kma_size_t size)
   }
 }
 
+/*
+Request from free list, if there is free block of request size, just return it.
+when local free block is returned, slack value adds 2.
+when global free block is returned, slack value adds 1.
+*/
 void* getFromFreeList(kma_size_t size)
 {
   int offset = kma_log2(size);
@@ -229,6 +238,9 @@ void* getFromFreeList(kma_size_t size)
   }
 }
 
+/*
+This function prints the slack values of all sizes
+*/
 void printSlack(){
   int i;
   for(i =5; i<14; i++){
@@ -237,6 +249,9 @@ void printSlack(){
   printf("\n");
 }
 
+/*
+Initial the first page
+*/
 void initFirstPage()
 {
   kma_page_t *first_page = get_page();
@@ -271,6 +286,9 @@ void initFirstPage()
   NUM_IN_USE += 1;
 }
 
+/*
+Request a block from the new page
+*/
 void* getFromNewPage(kma_size_t size)
 {
   kma_page_t *page = get_page();
@@ -296,9 +314,7 @@ void* getFromNewPage(kma_size_t size)
       node->pre = NULL;
       if (size > page_size >> 1) {
         node->status = FREE;
-        //add to free list head
       }
-      //add to free list tail
       addToFreeList(node);
       if (size > page_size >> 1) {
         break;
@@ -308,6 +324,9 @@ void* getFromNewPage(kma_size_t size)
   }
 }
 
+/*
+Set all bits to ones
+*/
 void setOnes(void *ptr, int num_bits, int start)
 {
   int i;
@@ -332,6 +351,9 @@ void setOnes(void *ptr, int num_bits, int start)
   }
 }
 
+/*
+Set all bits to zeros
+*/
 void setZeros(void *ptr, int num_bits, int start)
 {
   int i;
@@ -358,9 +380,12 @@ void setZeros(void *ptr, int num_bits, int start)
   }
 }
 
+/*
+Add a node to free list
+*/
 void addToFreeList(Node *node)
 { 
-  //printf("****  address of node is : %lx id is %d size is %d \n", (size_t)node,id,node->size) ;
+  //printf("****  address of node is : %lx id is %d size is %d \n", (size_t)node,id,node->size);
   int offset = kma_log2(node->size);
   node->offset = offset;
   Node *head = HEAD_BASE[offset];
@@ -374,6 +399,9 @@ void addToFreeList(Node *node)
   }
 }
 
+/*
+print the number of nodes in free list using offset
+*/
 int printFreeListHelper(int offset){
   int n = 0;
   Node *head = HEAD_BASE[offset];
@@ -387,6 +415,9 @@ int printFreeListHelper(int offset){
   return n;
 }
 
+/*
+print the values of the free list
+*/
 void printFreeList(){
   int i;
   int j;
@@ -396,24 +427,28 @@ void printFreeList(){
   }
 }
 
-// bool isLoop(int offset){
-//   int n = 0;
-//   Node *slow = HEAD_BASE[offset];
-//   Node *fast = HEAD_BASE[offset];
-//   if (slow == NULL){
-//     return FALSE;
-//   }
-//   while (fast->next != NULL && fast->next->next != NULL){
-//     slow = slow->next;
-//     fast = fast->next;
-//     fast = fast->next;
-//     n++;
-//     if (slow == fast){
-//       return TRUE;
-//     }
-//   }
-//   return FALSE;
-// }
+/*
+Check if the nodes in the free list is a loop
+This function is for debug
+*/
+bool isLoop(int offset){
+  int n = 0;
+  Node *slow = HEAD_BASE[offset];
+  Node *fast = HEAD_BASE[offset];
+  if (slow == NULL){
+    return FALSE;
+  }
+  while (fast->next != NULL && fast->next->next != NULL){
+    slow = slow->next;
+    fast = fast->next;
+    fast = fast->next;
+    n++;
+    if (slow == fast){
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
 
 void kma_free(void* ptr, kma_size_t size)
 {
@@ -425,18 +460,6 @@ void kma_free(void* ptr, kma_size_t size)
     size = roundUp(size);
   }
   int offset = kma_log2(size);
-  //printSlack();
-  // if(isLoop(5)){
-  //   printf("5 is a loop\n");
-  // }
-  // if(isLoop(6))
-  // {
-  //   printf("6 is a loop\n");
-  // }
-  // if(isLoop(7))
-  // {
-  //   printf("7 is a loop\n");
-  // }
   if (size == PAGESIZE) {
     freePageHelper(ptr);
     return;
@@ -447,6 +470,7 @@ void kma_free(void* ptr, kma_size_t size)
   node->next = NULL;
   node->pre = NULL;
   Node *res = NULL;
+  //When slack value larger than or equals 2
   //mark it locally free and free it locally
   if (SLACK_BASE[offset] >= 2){
     SLACK_BASE[offset] -= 2;
@@ -454,6 +478,7 @@ void kma_free(void* ptr, kma_size_t size)
     res = node;
     addToFreeList(res);
   } else if (SLACK_BASE[offset] == 1){
+    //When slack value equals 1
     //mark it globally free and free it globally, coalesce if possible
     SLACK_BASE[offset] -= 1;
     node->status = GFREE;
@@ -462,6 +487,7 @@ void kma_free(void* ptr, kma_size_t size)
     addToFreeList(res);
     coalesce(nodePointer, isCoalPointer);
   } else{
+    //When slack value equals 0
     //mark it globally free and free it globally, coalesce if possible
     node->status = GFREE;
     res = node;
@@ -469,20 +495,12 @@ void kma_free(void* ptr, kma_size_t size)
     Node ** nodePointer = &res;
     node_selected = updateFreeList(offset);
     countFreeListHelper(5);
-    if (node_selected == NULL){
-      printf("\n");
-      printf("to be freed size is %d\n", size);
-      printf("node selected is NULL\n");
-      printf("break point 1\n");
-      printf("\n");
-      printf("break point 1");
-    }
-    //printf("break point 1");
     if(checkCoalesce(res, node_selected)){
-      //printf("we don't need coalesce\n");
+      // only need coalesce once
       coalesce(nodePointer, isCoalPointer);
     }
     else{
+      // need coalesce twice
       nodePointer = &node_selected;
       coalesce(nodePointer, isCoalPointer);
       nodePointer = &res;
@@ -491,14 +509,13 @@ void kma_free(void* ptr, kma_size_t size)
   }
 
   if (NUM_IN_USE == 1) {
+    //when all other pages are freed, free the initial page here
     Node *node = (Node *) ((size_t) HEAD_BASE + NUM_HEADERS_BYTES + 128);
 
     int size = NUM_HEADERS_BYTES + 128;
-    //printf("enter if \n");
     while (BASEADDR(node) == BASEADDR(HEAD_BASE)) {
       if (node->status == GFREE) {
         size += node->size;
-        //printf(" node size is %d\n",node->size);
         node = (Node *) ((size_t) node + node->size);
       } else {
         break;
@@ -513,6 +530,7 @@ void kma_free(void* ptr, kma_size_t size)
       NUM_IN_USE = 0;
     } 
   } else {
+    //check if they are in the same page
     if (BASEADDR(res) == BASEADDR(node_selected)) {
       if (res->size == PAGESIZE) {
         freePageHelper(res);
@@ -537,7 +555,6 @@ void freePageHelper(void *ptr)
   kma_page_t *page = BASE[NUM_BOOK_PAGES + page_id];
   free_page(page);
   NUM_IN_USE--;
-  //printf("num in use is %d \n",NUM_IN_USE);
   if (NUM_IN_USE == 1) {
     Node *node = (Node *) ((size_t) HEAD_BASE + NUM_HEADERS_BYTES + 128);
 
@@ -603,11 +620,9 @@ void coalesce(Node ** headPointer, bool *isCoalPointer){
     }
   } 
   else {
-    //printf("break point 3 !!!\n");
     int prev_size = head->size;
 
     while (1) {
-      //printf("enter the loop in coalesce\n");
       int original_size = head->size;
       Node *right = (Node *) ((size_t) head + head->size);
       head = rightCoalesce(head, right);
@@ -625,7 +640,6 @@ void coalesce(Node ** headPointer, bool *isCoalPointer){
 
       Node *left = (Node *) ((size_t) head - head->size);
       head = leftCoalesce(left, head);
-      //printf("after left coal address head:  %lx size : %d\n", (size_t)head, head->size);
 
       if (head->size == PAGESIZE) {
         *headPointer = head;
