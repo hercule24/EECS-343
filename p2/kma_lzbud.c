@@ -122,7 +122,6 @@ void* kma_malloc(kma_size_t size)
     size = roundUp(size);
   }
 
-  //if this is the first malloc operation
   if (NUM_IN_USE == 0) {
     kma_page_t *book_page = get_page();
     BASE = (kma_page_t **) book_page->ptr;

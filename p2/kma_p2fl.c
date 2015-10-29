@@ -79,7 +79,7 @@ void insertAtHead(void* ptr, size_t size);
 
 void* kma_malloc(kma_size_t size)
 {
-  if (!INIT) { //first time using malloc
+  if (!INIT) { 
     initFreeList();
     INIT = TRUE;
   }
