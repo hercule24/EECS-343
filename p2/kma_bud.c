@@ -74,9 +74,6 @@
 typedef struct Node
 {
   bool status;
-  //int page_id;
-  //size_t start_bit;
-  //int end_bit;
   short offset;
   int size;
   struct Node *next;
@@ -88,7 +85,6 @@ int NUM_IN_USE = 0;
 kma_page_t **BASE = NULL;
 void *BITMAP_BASE = NULL;
 Node **HEAD_BASE = NULL;
-int NEXT_PAGE_ID = 0;
 
 /************Function Prototypes******************************************/
 void* getFromNewPage(kma_size_t);
@@ -117,6 +113,7 @@ void* kma_malloc(kma_size_t size)
     size = roundUp(size);
   }
 
+  // at the very begining
   if (NUM_IN_USE == 0) {
     kma_page_t *book_page = get_page();
     BASE = (kma_page_t **) book_page->ptr;
@@ -174,6 +171,7 @@ Node* getFromFreeListHelper(int offset, kma_size_t size)
   }
 }
 
+// for get the page from the free list
 void* getFromFreeList(kma_size_t size)
 {
   int offset = kma_log2(size);
@@ -213,6 +211,8 @@ void* getFromFreeList(kma_size_t size)
   }
 }
 
+// set the first four page for holding the kma_page_t pointers
+// the first 128 bytes for holding the pointers to free lists
 void initFirstPage()
 {
   kma_page_t *first_page = get_page();
@@ -240,6 +240,7 @@ void initFirstPage()
   NUM_IN_USE += 1;
 }
 
+// get buffer from a new page
 void* getFromNewPage(kma_size_t size)
 {
   kma_page_t *page = get_page();
@@ -272,6 +273,7 @@ void* getFromNewPage(kma_size_t size)
   }
 }
 
+// set the num_bits bits from start to mark them as allocated
 void setOnes(void *ptr, int num_bits, int start)
 {
   int i;
@@ -296,6 +298,7 @@ void setOnes(void *ptr, int num_bits, int start)
   }
 }
 
+// unset the num_bits bits from start to mark them as allocated
 void setZeros(void *ptr, int num_bits, int start)
 {
   int i;
@@ -358,6 +361,7 @@ void freePageHelper(void *ptr)
       }
     }
 
+    // if this is the last page, so free the book keeping pages
     if (size == PAGESIZE) {
       int i;
       for (i = 0; i < NUM_BOOK_PAGES + 1; i++) {
@@ -381,6 +385,7 @@ void kma_free(void* ptr, kma_size_t size)
     return;
   }
 
+  // set up for coalescing
   Node *node = (Node *) ptr;
   node->status = FREE;
   node->size = size;
@@ -411,6 +416,7 @@ void kma_free(void* ptr, kma_size_t size)
     }
   }
 
+  // if this is the last page, check if we can return them all to the system
   if (NUM_IN_USE == 1) {
     Node *node = (Node *) ((size_t) HEAD_BASE + NUM_HEADERS_BYTES);
 
@@ -459,9 +465,11 @@ bool canRightCoalesce(Node *left, Node *right)
 
 bool canLeftCoalesce(Node *left, Node *right)
 {
+  // only coalesce when it's the same page and the size equals
   if (BASEADDR(left) == BASEADDR(right)
       && left->status == FREE && right->size == left->size) {
     int size_sum = left->size + right->size; 
+    // only coalesce when satisfying alignment
     if (((size_t) left) % size_sum == 0) {
       return TRUE;
     } else{
@@ -547,6 +555,7 @@ int kma_log2(int size)
   return k;
 }
 
+// round up the size to the next larger power of 2
 int roundUp(int size) {
   int low = 0;
   int high = 13;
