@@ -1,0 +1,107 @@
+<html>
+    <head>
+        <title>AquaJet - Select Seats</title>
+        <style type="text/css">
+          td.available {
+            background-color:#00FF00;
+          }
+          td.pending {
+            background-color:#FFFF00;
+          }
+          td.occupied {
+            background-color:#FF0000;
+          }
+          .seat {
+            width: 40px;
+            height: 40px;
+            text-align: center;
+          }
+        </style>
+
+        <script type="text/javascript">
+            var userid=0;
+        </script>
+    </head>
+
+    <body>
+        <script src="http://code.jquery.com/jquery.js"></script>
+        <div id="container"
+        style="width:900px;margin-left:auto;margin-right:auto;border-width:2px;border-style:solid;border-color:black;padding:15px;">
+        <div style="text-align:center;">
+            <img src="aquajet_full.png">
+        </div>
+        <hr/>
+        <h1>Select Seats</h1>
+        <div class="seat_chart">
+           &nbsp; 
+        </div>
+
+        <script>
+          function reserveSeat(seatNum) {
+            var l = "view_seat?user=" + userid + "&seat=" + seatNum;
+            $.ajax({
+              dataType: "text",
+              url: l,
+              success: function( data ) {
+                alert(data);
+                window.location = "reserveSeat.html?user=" + userid + "&seat=" + seatNum;
+              }
+
+            });
+          }
+
+          function getParameterByName(name) {
+            name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
+            var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"), results = regex.exec(location.search);
+            return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+          }
+
+         (function() {
+            
+            var qs_userid = getParameterByName("user");
+            
+            if (qs_userid == "") {
+                var random_uid = Math.floor((Math.random()*20)+1);
+                window.location = "selectSeats.html?user=" + random_uid;
+                userid = random_uid;
+            }
+            else {
+                userid = qs_userid;
+            }
+            
+            var tableStr = "<table class=\"seats\"><tr>";
+            $.ajax({
+              dataType: "text",
+              url: "list_seats",
+              success: function( data ) {
+                var tok_array = data.split(",");
+                
+                for(var i=0; i < tok_array.length; i++) {
+                  var tok = $.trim(tok_array[i]);
+                  tok = tok.split(" ");
+                  if (tok[1] == "A") {
+                    //seat available -- clickable and green
+                    tableStr += "<td class=\"available seat\" onclick=\"reserveSeat(" + tok[0] + ")\" >" + tok[0] + "</td>";
+
+                  } else if (tok[1] == "P") {
+                    //seat pending -- show as occupied
+                    tableStr += "<td class=\"pending seat\">" + tok[0] + "</td>";
+                  } else if (tok[1] == "O") {
+                    //seat occupied -- show red
+                    tableStr += "<td class=\"occupied seat\">" + tok[0] + "</td>";
+                  }
+                  
+                }
+
+                tableStr += "</tr></table>";
+
+                $("div.seat_chart").html(tableStr);
+              
+              }
+             });
+        })();
+            
+        </script>
+
+    </body>
+</html>

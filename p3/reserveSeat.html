@@ -1,0 +1,85 @@
+<html>
+  <head>
+    <title>Reserve Seat</title>
+
+    <script>
+        var userid = 0;
+    </script>
+  </head>
+  <body>
+    <script src="http://code.jquery.com/jquery.js"></script>
+      <div id="container"
+        style="width:900px;margin-left:auto;margin-right:auto;border-width:2px;border-style:solid;border-color:black;padding:15px;">
+        <div style="text-align:center;">
+            <img src="aquajet_full.png">
+        </div>
+        <hr/>
+        <h1 class="title">Reserve Seat</h1>
+
+    <button id="confirm" onclick="confirm()">Confirm</button>
+    <button id="cancel" onclick="cancel()">Cancel</button>
+
+    <script>
+      function confirm() {
+        var seatNum = getParameterByName("seat");
+        if (seatNum == null || seatNum == "") {
+          alert("No seat number specified");
+          return;
+        }
+        var qs_userid = getParameterByName("user");
+        var l = "confirm?user="+qs_userid+"&seat=" + seatNum
+        $.ajax({
+          dataType: "text",
+          url: l,
+          success: function( data ) {
+            alert(data);
+            window.location = "selectSeats.html";
+          }
+        });
+
+      }
+
+      function cancel() {
+        var seatNum = getParameterByName("seat");
+        var qs_userid = getParameterByName("user");
+        if (seatNum == null || seatNum == "") {
+          alert("No seat number specified");
+          return;
+        }
+
+        var l = "cancel?user="+qs_userid+"&seat=" + seatNum;
+        $.ajax({
+          dataType: "text",
+          url: l,
+          success: function( data ) {
+            alert(data);
+            window.location = "selectSeats.html";
+          }
+        });
+
+
+      }
+      function getParameterByName(name) {
+        name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
+        var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"), results = regex.exec(location.search);
+        return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+      }
+
+      (function() {
+        var seatNum = getParameterByName("seat");
+        
+        var qs_userid = getParameterByName("user");
+        if (qs_userid == "") {
+            //redirect
+            window.location = "reserveSeat.html?user=" + userid + "&seat=" + seatNum;
+        }
+
+        $( "h1.title" ).html("Reserve Seat " + seatNum);
+
+      })();
+
+    </script>
+    </div>
+  </body>
+
+</html>

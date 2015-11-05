@@ -1,0 +1,39 @@
+[configuration]
+type=correctness
+threads=2
+requests=1
+sleeptime=1
+
+%assuming seats are 1-20
+%These are all supposed to work
+[trace1]
+/selectSeats.html?user=1
+/view_seat?user=1&seat=2 Confirm seat: 2 A ?
+/view_seat?user=2&seat=3 Confirm seat: 3 A ?
+/view_seat?user=1&seat=4 Confirm seat: 4 A ?
+/view_seat?user=2&seat=5 Confirm seat: 5 A ?
+/view_seat?user=1&seat=6 Confirm seat: 6 A ?
+/view_seat?user=2&seat=7 Confirm seat: 7 A ?
+/view_seat?user=1&seat=8 Confirm seat: 8 A ?
+/view_seat?user=2&seat=9 Confirm seat: 9 A ?
+/view_seat?user=1&seat=10 Confirm seat: 10 A ?
+/list_seats
+/cancel?user=1&seat=2 Seat request cancelled: 2 P
+/confirm?user=2&seat=3 Seat confirmed: 3 P
+
+
+[trace2]
+/selectSeats.html?user=10
+/selectSeats.html?user=20
+/view_seat?user=10&seat=1 Confirm seat: 1 A ?
+/list_seats
+/view_seat?user=10&seat=2 Seat unavailable
+/confirm?user=10&seat=2 Permission denied - seat held by another user
+/cancel?user=10&seat=3 Permission denied - seat held by another user
+/view_seat?user=20&seat=4 Seat unavailable
+/view_seat?user=20?seat=2 Seat unavailable
+/confirm?user=20&seat=4 Permission denied - seat held by another user
+/cancel?user=10&seat=5 Permission denied - seat held by another user
+/view_seat?user=20&seat=6 Seat unavailable
+/confirm?user=20&seat=6 Permission denied - seat held by another user
+/cancel?user=10&seat=7 Permission denied - seat held by another user

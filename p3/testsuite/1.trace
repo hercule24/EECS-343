@@ -1,0 +1,12 @@
+[configuration]
+type=performance
+threads=25
+requests=50
+sleeptime=0
+
+%trace run by "user"
+[trace]
+/selectSeats.html
+/aquajet_full.png
+/list_seats
+
