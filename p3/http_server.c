@@ -80,6 +80,7 @@ int main(int argc,char *argv[])
     listen(listenfd, 10);
 
     // TODO: Initialize your threadpool!
+    pool_t *pool = pool_create(4, 4);
 
     // This while loop "forever", handling incoming connections
     while(1)
@@ -95,11 +96,18 @@ int main(int argc,char *argv[])
             to other locations when you make your server multithreaded.
         *********************************************************************/
         
-        struct request req;
+        struct request *req = (struct request *) malloc(sizeof(struct request));
+        // remember to free the arguments
+        argument_t *arguments = (argument_t *) malloc(sizeof(argument_t));
+        arguments->req = req;
+        arguments->status = PARSE;
+        arguments->connfd = connfd;
+        pool_add_task(pool, handler, arguments);
+
         // parse_request fills in the req struct object
-        parse_request(connfd, &req);
+        parse_request(connfd, req);
         // process_request reads the req struct and processes the command
-        process_request(connfd, &req);
+        process_request(connfd, req);
         close(connfd);
     }
 }

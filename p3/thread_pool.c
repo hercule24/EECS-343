@@ -1,8 +1,12 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
 
 #include "thread_pool.h"
+#include "util.h"
 
 /**
  *  @struct threadpool_task
@@ -14,14 +18,15 @@
  *  @var argument Argument to be passed to the function.
  */
 
-#define MAX_THREADS 1
+#define MAX_THREADS 4
 #define STANDBY_SIZE 10
 
-typedef struct {
-    void (*function)(void *);
+// element to be added to the queue
+typedef struct pool_task {
+    //void (*function)(void *);
     void *argument;
+    pool_task *next;
 } pool_task_t;
-
 
 struct pool_t {
   pthread_mutex_t lock;
@@ -34,6 +39,7 @@ struct pool_t {
 
 static void *thread_do_work(void *pool);
 
+//pool_task_t *TASK_HEAD = NULL;
 
 /*
  * Create a threadpool, initialize variables, etc
@@ -41,7 +47,18 @@ static void *thread_do_work(void *pool);
  */
 pool_t *pool_create(int queue_size, int num_threads)
 {
-    return NULL;
+    pthread_t threads[MAX_THREADS];
+    int i;
+    for (i = 0; i < MAX_THREADS; i++) {
+        if (pthread_create(&threads[i], NULL, handler, NULL)) {
+            fprintf(stderr, "Failed to create process %d: %s\n", i, strerror(errno));
+        }
+    }
+    pool_t *pool = (pool_t *) malloc(sizeof(pool_t));
+    pool->queue = NULL;
+    pool->thread_count = MAX_THREADS;
+    pool->task_queue_size_limit = queue_size;
+    return pool;
 }
 
 
@@ -49,7 +66,7 @@ pool_t *pool_create(int queue_size, int num_threads)
  * Add a task to the threadpool
  *
  */
-int pool_add_task(pool_t *pool, void (*function)(void *), void *argument)
+int pool_add_task(pool_t *pool, void* (*function)(void *), void *argument)
 {
     int err = 0;
         
@@ -66,6 +83,7 @@ int pool_destroy(pool_t *pool)
 {
     int err = 0;
  
+    free(pool);
     return err;
 }
 
@@ -84,4 +102,16 @@ static void *thread_do_work(void *pool)
 
     pthread_exit(NULL);
     return(NULL);
+}
+
+void* handler(void *arg)
+{
+    argument_t *arguments = (argument_t *) arg;
+    if (arguments->status == PARSE) {
+        parse_request(arguments->connfd, arguments->req);
+    } 
+    if (arguments->status == PROCESS) {
+        process_request(arguments->connfd, arguments->req); 
+    }
+    pthread_exit(NULL);
 }
