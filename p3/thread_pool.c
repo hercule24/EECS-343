@@ -1,9 +1,7 @@
 #include <stdlib.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
 
 #include "thread_pool.h"
 #include "util.h"
@@ -24,33 +22,6 @@
 #define BIZ 2
 #define COACH 3
 
-// element to be added to the queue
-typedef struct pool_task {
-    //void (*function)(void *);
-    void *argument;
-    pool_task *next;
-} pool_task_t;
-
-struct pool_t {
-  pthread_mutex_t lock;
-  pthread_cond_t notify;
-  pthread_t *threads;
-  pool_task_t *parse_queue_head;
-  pool_task_t *parse_queue_tail;
-  pool_task_t *first_queue_head;
-  pool_task_t *first_queue_tail;
-  pool_task_t *biz_queue_head;
-  pool_task_t *biz_queue_tail;
-  pool_task_t *coach_queue_head;
-  pool_task_t *coach_queue_tail;
-  int thread_count;
-  int task_queue_size_limit;
-};
-
-static void *thread_do_work(void *pool);
-
-//pool_task_t *TASK_HEAD = NULL;
-
 /*
  * Create a threadpool, initialize variables, etc
  *
@@ -58,14 +29,22 @@ static void *thread_do_work(void *pool);
 pool_t *pool_create(int queue_size, int num_threads)
 {
     pthread_t threads[MAX_THREADS];
+    pool_t *pool = (pool_t *) malloc(sizeof(pool_t));
     int i;
     for (i = 0; i < MAX_THREADS; i++) {
-        if (pthread_create(&threads[i], NULL, handler, NULL)) {
+        if (pthread_create(&threads[i], NULL, thread_do_work, pool)) {
             fprintf(stderr, "Failed to create process %d: %s\n", i, strerror(errno));
         }
     }
-    pool_t *pool = (pool_t *) malloc(sizeof(pool_t));
-    pthread_cond_init(&(pool->notify), NULL);
+
+    pthread_mutex_init(&pool->lock, NULL);
+    //pthread_mutex_init(&pool->parse_queue_head_lock, NULL);
+    //pthread_mutex_init(&pool->first_queue_head_lock, NULL);
+    //pthread_mutex_init(&pool->biz_queue_head_lock, NULL);
+    //pthread_mutex_init(&pool->coach_queue_head_lock, NULL);
+
+    pthread_cond_init(&pool->notify, NULL);
+
     pool->parse_queue_head = NULL;
     pool->parse_queue_tail = NULL;
     pool->first_queue_head = NULL;
@@ -84,14 +63,10 @@ pool_t *pool_create(int queue_size, int num_threads)
  * Add a task to the threadpool
  *
  */
-int pool_add_task(pool_t *pool, void* (*function)(void *), void *argument)
+int pool_add_task(pool_t *pool, pool_task_t *task)
 {
-    argument_t *arguments = (argument_t *) argument;
-    pool_task_t *task = (pool_task_t *) malloc(sizeof(pool_task_t));
-    task->argument = argument;
-    task->next = NULL;
-
-    if (arguments->status == PARSE) {
+    pthread_mutex_lock(&pool->lock);
+    if (task->status == PARSE) {
         if (pool->parse_queue_head == NULL) {
             pool->parse_queue_head = task;
             pool->parse_queue_tail = task;
@@ -101,8 +76,8 @@ int pool_add_task(pool_t *pool, void* (*function)(void *), void *argument)
         }
     }
 
-    if (arguments->status == PROCESS) {
-        struct request *req = arguments->req;
+    if (task->status == PROCESS) {
+        struct request *req = task->req;
         if (req->customer_priority == FIRST) {
             if (pool->first_queue_head == NULL) {
                 pool->first_queue_head = task;
@@ -131,6 +106,8 @@ int pool_add_task(pool_t *pool, void* (*function)(void *), void *argument)
             }
         }
     }
+    pthread_mutex_unlock(&pool->lock);
+    pthread_cond_broadcast(&pool->notify);
         
     return 0;
 }
@@ -145,37 +122,69 @@ int pool_destroy(pool_t *pool)
 {
     int err = 0;
  
+    pthread_mutex_destroy(&pool->lock);
+    //pthread_mutex_destroy(&(pool->parse_queue_head_lock));
+    //pthread_mutex_destroy(&(pool->first_queue_head_lock));
+    //pthread_mutex_destroy(&(pool->biz_queue_head_lock));
+    //pthread_mutex_destroy(&(pool->coach_queue_head_lock));
+
     pthread_cond_destroy(&(pool->notify));
     free(pool);
     return err;
 }
 
-
-
 /*
  * Work loop for threads. Should be passed into the pthread_create() method.
  *
  */
-static void *thread_do_work(void *pool)
+static void *thread_do_work(void *arg)
 { 
+    pool_t *pool = (pool_t *) arg;
+    while (1) {
+        pool_task_t *task = NULL;
 
-    while(1) {
-        
+        pthread_mutex_lock(&pool->lock);
+        if (pool->parse_queue_head != NULL || pool->first_queue_head != NULL ||
+                pool->biz_queue_head != NULL || pool->coach_queue_head != NULL) {
+            if (pool->parse_queue_head != NULL) {
+                task = pool->parse_queue_head;
+                pool->parse_queue_head = task->next;
+                break;
+            }
+            if (pool->first_queue_head != NULL) {
+                task = pool->first_queue_head;
+                pool->first_queue_head = task->next;
+                break;
+            }
+            if (pool->biz_queue_head != NULL) {
+                task = pool->biz_queue_head;
+                pool->biz_queue_head = task->next;
+                break;
+            }
+            if (pool->coach_queue_head != NULL) {
+                task = pool->coach_queue_head;
+                pool->coach_queue_head = task->next;
+                break;
+            }
+        } else {
+            pthread_cond_wait(&pool->notify, &pool->lock);
+        }
+        pthread_mutex_unlock(&pool->lock);
+
+        if (task != NULL) {
+            if (task->status == PROCESS) {
+                process_request(task->connfd, task->req);
+                close(task->connfd);
+                free(task->req);
+                free(task);
+            }
+            if (task->status == PARSE) {
+                parse_request(task->connfd, task->req); 
+                task->status = PROCESS;
+                task->next = NULL;
+                pool_add_task(pool, task);
+            }
+        }
     }
-
-    pthread_exit(NULL);
-    return(NULL);
-}
-
-void* handler(void *arg)
-{
-    argument_t *arguments = (argument_t *) arg;
-    if (arguments->status == PARSE) {
-        parse_request(arguments->connfd, arguments->req);
-    } 
-    if (arguments->status == PROCESS) {
-        process_request(arguments->connfd, arguments->req); 
-    }
-    free(arguments);
     pthread_exit(NULL);
 }

@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdbool.h>
-#include <errno.h>
 
 #include "thread_pool.h"
 #include "seats.h"
@@ -97,18 +96,12 @@ int main(int argc,char *argv[])
         *********************************************************************/
         
         struct request *req = (struct request *) malloc(sizeof(struct request));
-        // remember to free the arguments
-        argument_t *arguments = (argument_t *) malloc(sizeof(argument_t));
-        arguments->req = req;
-        arguments->status = PARSE;
-        arguments->connfd = connfd;
-        pool_add_task(pool, handler, arguments);
-
-        // parse_request fills in the req struct object
-        parse_request(connfd, req);
-        // process_request reads the req struct and processes the command
-        process_request(connfd, req);
-        close(connfd);
+        pool_task_t *task = (pool_task_t *) malloc(sizeof(pool_task_t));
+        task->status = PARSE;
+        task->connfd = connfd;
+        task->req = req;
+        task->next = NULL;
+        pool_add_task(pool, task);
     }
 }
 

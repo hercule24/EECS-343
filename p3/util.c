@@ -173,7 +173,6 @@ void process_request(int connfd, struct request* req)
         } 
     }
     free(req->resource);
-    free(req);
 }
 
 int get_line(int fd, char *buf, int size)
