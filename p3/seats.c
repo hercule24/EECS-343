@@ -3,8 +3,10 @@
 #include <string.h>
 
 #include "seats.h"
+#include "thread_pool.h"
 
 seat_t* seat_header = NULL;
+extern pool_t *pool;
 
 char seat_state_to_char(seat_state_t);
 
@@ -33,6 +35,7 @@ void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custom
     {
         if(curr->id == seat_id)
         {
+            pthread_mutex_lock(&pool->seat_locks[curr->id-1]);
             if(curr->state == AVAILABLE || (curr->state == PENDING && curr->customer_id == customer_id))
             {
                 snprintf(buf, bufsize, "Confirm seat: %d %c ?\n\n",
@@ -44,6 +47,7 @@ void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custom
             {
                 snprintf(buf, bufsize, "Seat unavailable\n\n");
             }
+            pthread_mutex_unlock(&pool->seat_locks[curr->id-1]);
 
             return;
         }
@@ -60,6 +64,7 @@ void confirm_seat(char* buf, int bufsize, int seat_id, int customer_id, int cust
     {
         if(curr->id == seat_id)
         {
+            pthread_mutex_lock(&pool->seat_locks[curr->id-1]);
             if(curr->state == PENDING && curr->customer_id == customer_id )
             {
                 snprintf(buf, bufsize, "Seat confirmed: %d %c\n\n",
@@ -74,6 +79,7 @@ void confirm_seat(char* buf, int bufsize, int seat_id, int customer_id, int cust
             {
                 snprintf(buf, bufsize, "No pending request\n\n");
             }
+            pthread_mutex_unlock(&pool->seat_locks[curr->id-1]);
 
             return;
         }
@@ -91,6 +97,7 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
     {
         if(curr->id == seat_id)
         {
+            pthread_mutex_lock(&pool->seat_locks[curr->id-1]);
             if(curr->state == PENDING && curr->customer_id == customer_id )
             {
                 snprintf(buf, bufsize, "Seat request cancelled: %d %c\n\n",
@@ -106,6 +113,7 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
             {
                 snprintf(buf, bufsize, "No pending request\n\n");
             }
+            pthread_mutex_unlock(&pool->seat_locks[curr->id-1]);
 
             return;
         }

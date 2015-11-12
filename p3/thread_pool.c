@@ -16,28 +16,29 @@
  *  @var argument Argument to be passed to the function.
  */
 
-#define MAX_THREADS 4
-#define STANDBY_SIZE 10
-#define FIRST 1
-#define BIZ 2
-#define COACH 3
-
 /*
  * Create a threadpool, initialize variables, etc
  *
  */
-pool_t *pool_create(int queue_size, int num_threads)
+
+pool_t *pool_create(int num_seats)
 {
-    pthread_t threads[MAX_THREADS];
     pool_t *pool = (pool_t *) malloc(sizeof(pool_t));
     int i;
     for (i = 0; i < MAX_THREADS; i++) {
-        if (pthread_create(&threads[i], NULL, thread_do_work, pool)) {
-            fprintf(stderr, "Failed to create process %d: %s\n", i, strerror(errno));
+        if (pthread_create(&pool->threads[i], NULL, thread_do_work, pool) != 0) {
+            fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
         }
     }
 
-    pthread_mutex_init(&pool->lock, NULL);
+    pthread_mutex_init(&pool->head_lock, NULL);
+
+    // create a lock for every seat
+    i = 0;
+    pool->seat_locks = (pthread_mutex_t *) malloc(num_seats * sizeof(pthread_mutex_t));
+    for ( ; i < num_seats; i++) {
+        pthread_mutex_init(&pool->seat_locks[i], NULL);
+    }
     //pthread_mutex_init(&pool->parse_queue_head_lock, NULL);
     //pthread_mutex_init(&pool->first_queue_head_lock, NULL);
     //pthread_mutex_init(&pool->biz_queue_head_lock, NULL);
@@ -53,8 +54,10 @@ pool_t *pool_create(int queue_size, int num_threads)
     pool->biz_queue_tail = NULL;
     pool->coach_queue_head = NULL;
     pool->coach_queue_tail = NULL;
-    pool->thread_count = MAX_THREADS;
-    pool->task_queue_size_limit = queue_size;
+
+    pool->num_seats = num_seats;
+    //pool->thread_count = MAX_THREADS;
+
     return pool;
 }
 
@@ -65,7 +68,7 @@ pool_t *pool_create(int queue_size, int num_threads)
  */
 int pool_add_task(pool_t *pool, pool_task_t *task)
 {
-    pthread_mutex_lock(&pool->lock);
+    pthread_mutex_lock(&pool->head_lock);
     if (task->status == PARSE) {
         if (pool->parse_queue_head == NULL) {
             pool->parse_queue_head = task;
@@ -106,7 +109,7 @@ int pool_add_task(pool_t *pool, pool_task_t *task)
             }
         }
     }
-    pthread_mutex_unlock(&pool->lock);
+    pthread_mutex_unlock(&pool->head_lock);
     pthread_cond_broadcast(&pool->notify);
         
     return 0;
@@ -122,13 +125,18 @@ int pool_destroy(pool_t *pool)
 {
     int err = 0;
  
-    pthread_mutex_destroy(&pool->lock);
+    pthread_mutex_destroy(&pool->head_lock);
+    int i;
+    for (i = 0; i < pool->num_seats; i++) {
+        pthread_mutex_destroy(&pool->seat_locks[i]);
+    }
+    free(pool->seat_locks);
     //pthread_mutex_destroy(&(pool->parse_queue_head_lock));
     //pthread_mutex_destroy(&(pool->first_queue_head_lock));
     //pthread_mutex_destroy(&(pool->biz_queue_head_lock));
     //pthread_mutex_destroy(&(pool->coach_queue_head_lock));
 
-    pthread_cond_destroy(&(pool->notify));
+    pthread_cond_destroy(&pool->notify);
     free(pool);
     return err;
 }
@@ -143,33 +151,45 @@ static void *thread_do_work(void *arg)
     while (1) {
         pool_task_t *task = NULL;
 
-        pthread_mutex_lock(&pool->lock);
+        pthread_mutex_lock(&pool->head_lock);
         if (pool->parse_queue_head != NULL || pool->first_queue_head != NULL ||
                 pool->biz_queue_head != NULL || pool->coach_queue_head != NULL) {
             if (pool->parse_queue_head != NULL) {
                 task = pool->parse_queue_head;
                 pool->parse_queue_head = task->next;
+                if (pool->parse_queue_head == NULL) {
+                    pool->parse_queue_tail = NULL;
+                }
                 break;
             }
             if (pool->first_queue_head != NULL) {
                 task = pool->first_queue_head;
                 pool->first_queue_head = task->next;
+                if (pool->first_queue_head == NULL) {
+                    pool->first_queue_tail = NULL;
+                }
                 break;
             }
             if (pool->biz_queue_head != NULL) {
                 task = pool->biz_queue_head;
                 pool->biz_queue_head = task->next;
+                if (pool->biz_queue_head == NULL) {
+                    pool->biz_queue_tail = NULL;
+                }
                 break;
             }
             if (pool->coach_queue_head != NULL) {
                 task = pool->coach_queue_head;
                 pool->coach_queue_head = task->next;
+                if (pool->coach_queue_head == NULL) {
+                    pool->coach_queue_tail = NULL;
+                }
                 break;
             }
         } else {
-            pthread_cond_wait(&pool->notify, &pool->lock);
+            pthread_cond_wait(&pool->notify, &pool->head_lock);
         }
-        pthread_mutex_unlock(&pool->lock);
+        pthread_mutex_unlock(&pool->head_lock);
 
         if (task != NULL) {
             if (task->status == PROCESS) {

@@ -17,11 +17,9 @@
 #define BUFSIZE 1024
 #define FILENAMESIZE 100
 
-void shutdown_server(int);
-
 int listenfd;
-
 // TODO: Declare your threadpool!
+pool_t *pool = NULL;
 
 int main(int argc,char *argv[])
 {
@@ -79,7 +77,7 @@ int main(int argc,char *argv[])
     listen(listenfd, 10);
 
     // TODO: Initialize your threadpool!
-    pool_t *pool = pool_create(4, 4);
+    pool = pool_create(num_seats);
 
     // This while loop "forever", handling incoming connections
     while(1)
@@ -105,10 +103,23 @@ int main(int argc,char *argv[])
     }
 }
 
-void shutdown_server(int signo){
+void shutdown_server(int signo)
+{
     printf("Shutting down the server...\n");
     
     // TODO: Teardown your threadpool
+    if (pool != NULL) {
+        int i;
+        for (i = 0; i < MAX_THREADS; i++) {
+            if (pthread_cancel(pool->threads[i]) != 0) {
+                fprintf(stderr, "Failed to cancel thread %d: %s\n", i, strerror(errno));
+            }
+            if (pthread_join(pool->threads[i], NULL) != 0) {
+                fprintf(stderr, "Failed to join thread %d: %s\n", i, strerror(errno));
+            }
+        }
+        pool_destroy(pool);
+    }
 
     // TODO: Print stats about your ability to handle requests.
     unload_seats();

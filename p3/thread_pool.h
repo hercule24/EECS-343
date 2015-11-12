@@ -6,6 +6,12 @@
 #define PARSE 0
 #define PROCESS 1
 
+#define MAX_THREADS 4
+#define STANDBY_SIZE 10
+#define FIRST 1
+#define BIZ 2
+#define COACH 3
+
 typedef struct pool_t pool_t;
 
 // element to be added to the queue
@@ -17,13 +23,14 @@ typedef struct pool_task {
 } pool_task_t;
 
 struct pool_t {
-  pthread_mutex_t lock;
+  pthread_mutex_t head_lock;
+  pthread_mutex_t *seat_locks;
   //pthread_mutex_t parse_queue_head_lock;
   //pthread_mutex_t first_queue_head_lock;
   //pthread_mutex_t biz_queue_head_lock;
   //pthread_mutex_t coach_queue_head_lock;
   pthread_cond_t notify;
-  //pthread_t *threads;
+  pthread_t threads[MAX_THREADS];
   pool_task_t *parse_queue_head;
   pool_task_t *parse_queue_tail;
   pool_task_t *first_queue_head;
@@ -32,11 +39,12 @@ struct pool_t {
   pool_task_t *biz_queue_tail;
   pool_task_t *coach_queue_head;
   pool_task_t *coach_queue_tail;
-  int thread_count;
-  int task_queue_size_limit;
+  //int thread_count;
+  int num_seats;
+  //int task_queue_size_limit;
 };
 
-pool_t *pool_create(int thread_count, int queue_size);
+pool_t *pool_create(int num_seats);
 
 //int pool_add_task(pool_t *pool, void *(*routine)(void *), void *arg);
 int pool_add_task(pool_t *pool, pool_task_t *task);
@@ -44,5 +52,7 @@ int pool_add_task(pool_t *pool, pool_task_t *task);
 static void *thread_do_work(void *pool);
 
 int pool_destroy(pool_t *pool);
+
+void shutdown_server(int);
 
 #endif
