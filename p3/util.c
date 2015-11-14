@@ -55,6 +55,7 @@ void parse_request(int connfd, struct request* req)
     if (strncmp(instr, "GET", 3) != 0) {
         writenbytes(connfd, bad_request, strlen(bad_request));
         close(connfd);
+        req->resource = NULL;
         return;
     }
 
@@ -119,6 +120,9 @@ void process_request(int connfd, struct request* req)
     int fd;
     char buf[BUFSIZE+1];
     int length = strlen(req->resource);
+    if (req->resource == NULL){
+        return;
+    }
     // Check if the request is for one of our operations
     if (strncmp(req->resource, "list_seats", length) == 0)
     {  

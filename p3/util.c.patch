@@ -1,0 +1,20 @@
+--- util.c	2015-11-13 11:46:35.000000000 -0600
++++ util_rev.c	2015-11-13 11:46:32.000000000 -0600
+@@ -55,6 +55,7 @@
+     if (strncmp(instr, "GET", 3) != 0) {
+         writenbytes(connfd, bad_request, strlen(bad_request));
+         close(connfd);
++        req->resource = NULL;
+         return;
+     }
+ 
+@@ -119,6 +120,9 @@
+     int fd;
+     char buf[BUFSIZE+1];
+     int length = strlen(req->resource);
++    if (req->resource == NULL){
++        return;
++    }
+     // Check if the request is for one of our operations
+     if (strncmp(req->resource, "list_seats", length) == 0)
+     {  
