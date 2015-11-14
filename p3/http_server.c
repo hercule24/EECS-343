@@ -109,15 +109,6 @@ void shutdown_server(int signo)
     
     // TODO: Teardown your threadpool
     if (pool != NULL) {
-        int i;
-        for (i = 0; i < MAX_THREADS; i++) {
-            if (pthread_cancel(pool->threads[i]) != 0) {
-                fprintf(stderr, "Failed to cancel thread %d: %s\n", i, strerror(errno));
-            }
-            if (pthread_join(pool->threads[i], NULL) != 0) {
-                fprintf(stderr, "Failed to join thread %d: %s\n", i, strerror(errno));
-            }
-        }
         pool_destroy(pool);
     }
 

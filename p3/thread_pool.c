@@ -52,6 +52,8 @@ pool_t *pool_create(int num_seats)
 
     pthread_cond_init(&pool->notify, NULL);
 
+    pool->sem.value = STANDBY_SIZE;
+
     pool->parse_queue_head = NULL;
     pool->parse_queue_tail = NULL;
     pool->first_queue_head = NULL;
@@ -60,6 +62,8 @@ pool_t *pool_create(int num_seats)
     pool->biz_queue_tail = NULL;
     pool->coach_queue_head = NULL;
     pool->coach_queue_tail = NULL;
+    pool->standby_list_head = NULL;
+    pool->standby_list_tail = NULL;
 
     pool->num_seats = num_seats;
     //pool->thread_count = MAX_THREADS;
@@ -129,10 +133,28 @@ int pool_add_task(pool_t *pool, pool_task_t *task)
  */
 int pool_destroy(pool_t *pool)
 {
-    int err = 0;
+    int i;
+    for (i = 0; i < MAX_THREADS; i++) {
+        if (pthread_cancel(pool->threads[i]) != 0) {
+            fprintf(stderr, "Failed to cancel thread %d: %s\n", i, strerror(errno));
+            return -1;
+        }
+        if (pthread_join(pool->threads[i], NULL) != 0) {
+            fprintf(stderr, "Failed to join thread %d: %s\n", i, strerror(errno));
+            return -1;
+        }
+    }
+
+    if (pthread_cancel(pool->clean_thread) != 0) {
+        fprintf(stderr, "Failed to cancel clean up thread %d: %s\n", i, strerror(errno));
+        return -1;
+    }
+    if (pthread_join(pool->clean_thread, NULL) != 0) {
+        fprintf(stderr, "Failed to join clean up thread %d: %s\n", i, strerror(errno));
+        return -1;
+    }
  
     pthread_mutex_destroy(&pool->head_lock);
-    int i;
     for (i = 0; i < pool->num_seats; i++) {
         pthread_mutex_destroy(&pool->seat_locks[i]);
     }
@@ -144,7 +166,7 @@ int pool_destroy(pool_t *pool)
 
     pthread_cond_destroy(&pool->notify);
     free(pool);
-    return err;
+    return 0;
 }
 
 /*
@@ -199,10 +221,15 @@ static void *thread_do_work(void *arg)
 
         if (task != NULL) {
             if (task->status == PROCESS) {
-                process_request(task->connfd, task->req);
-                close(task->connfd);
-                free(task->req);
-                free(task);
+                int res = process_request(task->connfd, task->req);
+                // should be placed into the standby list
+                if (res == 1) {
+                    //pool_add_task(pool, task);
+                } else {
+                    close(task->connfd);
+                    free(task->req);
+                    free(task);
+                }
             }
             if (task->status == PARSE) {
                 parse_request(task->connfd, task->req); 

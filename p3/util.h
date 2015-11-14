@@ -9,6 +9,6 @@ struct request{
 };
 
 void parse_request(int, struct request*);
-void process_request(int, struct request*);
+int process_request(int, struct request*);
 
 #endif

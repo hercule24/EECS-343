@@ -107,7 +107,8 @@ void parse_request(int connfd, struct request* req)
     req->customer_priority = parse_int_arg(file, "priority=");
 }
 
-void process_request(int connfd, struct request* req)
+// return 1, for cases when all seats are pending or occupied.
+int process_request(int connfd, struct request* req)
 {
     char *ok_response = "HTTP/1.0 200 OK\r\n"\
                            "Content-type: text/html\r\n\r\n";   
@@ -120,8 +121,9 @@ void process_request(int connfd, struct request* req)
     int fd;
     char buf[BUFSIZE+1];
     int length = strlen(req->resource);
+    int res;
     if (req->resource == NULL){
-        return;
+        return -1;
     }
     // Check if the request is for one of our operations
     if (strncmp(req->resource, "list_seats", length) == 0)
@@ -131,10 +133,11 @@ void process_request(int connfd, struct request* req)
         writenbytes(connfd, ok_response, strlen(ok_response));
         // send data
         writenbytes(connfd, buf, strlen(buf));
+        return 0;
     } 
     else if(strncmp(req->resource, "view_seat", length) == 0)
     {
-        view_seat(buf, BUFSIZE, req->seat_id, req->user_id, req->customer_priority);
+        res = view_seat(buf, BUFSIZE, req->seat_id, req->user_id, req->customer_priority);
         // send headers
         writenbytes(connfd, ok_response, strlen(ok_response));
         // send data
@@ -147,6 +150,7 @@ void process_request(int connfd, struct request* req)
         writenbytes(connfd, ok_response, strlen(ok_response));
         // send data
         writenbytes(connfd, buf, strlen(buf));
+        res = 0;
     }
     else if(strncmp(req->resource, "cancel", length) == 0)
     {
@@ -155,6 +159,7 @@ void process_request(int connfd, struct request* req)
         writenbytes(connfd, ok_response, strlen(ok_response));
         // send data
         writenbytes(connfd, buf, strlen(buf));
+        res = 0;
     }
     else
     {
@@ -175,8 +180,10 @@ void process_request(int connfd, struct request* req)
             // close file and free space
             close(fd);
         } 
+        res = 0;
     }
     free(req->resource);
+    return res;
 }
 
 int get_line(int fd, char *buf, int size)

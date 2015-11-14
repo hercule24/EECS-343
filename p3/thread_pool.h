@@ -22,9 +22,14 @@ typedef struct pool_task {
     struct pool_task *next;
 } pool_task_t;
 
+typedef struct m_sem_t {
+    int value;
+} m_sem_t;
+
 struct pool_t {
   pthread_mutex_t head_lock;
   pthread_mutex_t *seat_locks;
+  m_sem_t sem;
   //pthread_mutex_t parse_queue_head_lock;
   //pthread_mutex_t first_queue_head_lock;
   //pthread_mutex_t biz_queue_head_lock;
@@ -40,6 +45,8 @@ struct pool_t {
   pool_task_t *biz_queue_tail;
   pool_task_t *coach_queue_head;
   pool_task_t *coach_queue_tail;
+  pool_task_t *standby_list_head;
+  pool_task_t *standby_list_tail;
   //int thread_count;
   int num_seats;
   //int task_queue_size_limit;

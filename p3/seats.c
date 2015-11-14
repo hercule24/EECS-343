@@ -28,13 +28,15 @@ void list_seats(char* buf, int bufsize)
         snprintf(buf, bufsize, "No seats not found\n\n");
 }
 
-void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int customer_priority)
+// return 1, if seat unavailable
+int view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int customer_priority)
 {
     seat_t* curr = seat_header;
     while(curr != NULL)
     {
         if(curr->id == seat_id)
         {
+            int res;
             pthread_mutex_lock(&pool->seat_locks[curr->id-1]);
             if(curr->state == AVAILABLE || (curr->state == PENDING && curr->customer_id == customer_id))
             {
@@ -42,19 +44,20 @@ void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custom
                         curr->id, seat_state_to_char(curr->state));
                 curr->state = PENDING;
                 curr->customer_id = customer_id;
+                res = 0;
             }
             else
             {
                 snprintf(buf, bufsize, "Seat unavailable\n\n");
+                res = 1;
             }
             pthread_mutex_unlock(&pool->seat_locks[curr->id-1]);
-
-            return;
+            return res;
         }
         curr = curr->next;
     }
     snprintf(buf, bufsize, "Requested seat not found\n\n");
-    return;
+    return 2;
 }
 
 void confirm_seat(char* buf, int bufsize, int seat_id, int customer_id, int customer_priority)
