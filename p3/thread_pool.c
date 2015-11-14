@@ -5,6 +5,7 @@
 
 #include "thread_pool.h"
 #include "util.h"
+#include "seats.h"
 
 /**
  *  @struct threadpool_task
@@ -20,6 +21,9 @@
  * Create a threadpool, initialize variables, etc
  *
  */
+#define AVAILABLE 4
+
+extern seat_t *seat_header;
 
 pool_t *pool_create(int num_seats)
 {
@@ -29,6 +33,10 @@ pool_t *pool_create(int num_seats)
         if (pthread_create(&pool->threads[i], NULL, thread_do_work, pool) != 0) {
             fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
         }
+    }
+
+    if (pthread_create(&pool->clean_thread, NULL, cleanUp, NULL) != 0) {
+        fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
     }
 
     pthread_mutex_init(&pool->head_lock, NULL);
@@ -207,4 +215,11 @@ static void *thread_do_work(void *arg)
         }
     }
     pthread_exit(NULL);
+}
+
+void *cleanUp(void *args) {
+    pool_t *pool = (pool_t *) args;
+    int num_seats = pool->num_seats;
+    int status[num_seats] = {AVAILABLE};
+    seat_t *h = seat_header;
 }

@@ -31,6 +31,7 @@ struct pool_t {
   //pthread_mutex_t coach_queue_head_lock;
   pthread_cond_t notify;
   pthread_t threads[MAX_THREADS];
+  pthread_t clean_thread;
   pool_task_t *parse_queue_head;
   pool_task_t *parse_queue_tail;
   pool_task_t *first_queue_head;
@@ -54,5 +55,7 @@ static void *thread_do_work(void *pool);
 int pool_destroy(pool_t *pool);
 
 void shutdown_server(int);
+
+void *cleanUp(void *args);
 
 #endif
