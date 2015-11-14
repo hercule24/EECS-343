@@ -21,8 +21,6 @@
  * Create a threadpool, initialize variables, etc
  *
  */
-#define AVAILABLE 4
-
 extern seat_t *seat_header;
 
 pool_t *pool_create(int num_seats)
@@ -219,7 +217,34 @@ static void *thread_do_work(void *arg)
 
 void *cleanUp(void *args) {
     pool_t *pool = (pool_t *) args;
-    int num_seats = pool->num_seats;
-    int status[num_seats] = {AVAILABLE};
-    seat_t *h = seat_header;
+    int n = pool->num_seats;
+    int status[n];
+    int cid[n]; 
+    int i = 0;
+    for (; i < n; ++i) {
+	status[i] = 0;
+	cid[i] = -1;
+    }
+    while (1) {
+	sleep(5);
+	seat_t *cur = seat_header;
+	while (cur != NULL) {
+	    if (cur->state == PENDING) {
+		i = cur->id - 1;
+		if (status[i] == 1 && cur->customer_id == cid[i]) {
+		    pthread_mutex_lock(&pool->seat_locks[i]);
+		    cur->state = AVAILABLE;
+		    pthread_mutex_unlock(&pool->seat_locks[i]);
+		    status[i] = 0;
+		} else if (status[i] == 0) {
+		    status[i] = 1;
+		    cid[i] = cur->customer_id;
+		} else {
+		    cid[i] = cur->customer_id;
+		}
+	    }
+	    cur = cur->next;
+	}
+    }
+    pthread_exit(NULL);
 }
