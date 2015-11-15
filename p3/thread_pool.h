@@ -57,7 +57,7 @@ pool_t *pool_create(int num_seats);
 //int pool_add_task(pool_t *pool, void *(*routine)(void *), void *arg);
 int pool_add_task(pool_t *pool, pool_task_t *task);
 
-static void *thread_do_work(void *pool);
+void *thread_do_work(void *pool);
 
 int pool_destroy(pool_t *pool);
 

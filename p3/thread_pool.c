@@ -26,33 +26,21 @@ extern seat_t *seat_header;
 pool_t *pool_create(int num_seats)
 {
     pool_t *pool = (pool_t *) malloc(sizeof(pool_t));
-    int i;
-    for (i = 0; i < MAX_THREADS; i++) {
-        if (pthread_create(&pool->threads[i], NULL, thread_do_work, pool) != 0) {
-            fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
-        }
-    }
-
-    if (pthread_create(&pool->clean_thread, NULL, cleanUp, NULL) != 0) {
-        fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
-    }
-
     pthread_mutex_init(&pool->head_lock, NULL);
-
     // create a lock for every seat
-    i = 0;
+    int i;
     pool->seat_locks = (pthread_mutex_t *) malloc(num_seats * sizeof(pthread_mutex_t));
-    for ( ; i < num_seats; i++) {
+    for (i = 0; i < num_seats; i++) {
         pthread_mutex_init(&pool->seat_locks[i], NULL);
     }
     //pthread_mutex_init(&pool->parse_queue_head_lock, NULL);
     //pthread_mutex_init(&pool->first_queue_head_lock, NULL);
     //pthread_mutex_init(&pool->biz_queue_head_lock, NULL);
     //pthread_mutex_init(&pool->coach_queue_head_lock, NULL);
+    //
+    pool->sem.value = STANDBY_SIZE;
 
     pthread_cond_init(&pool->notify, NULL);
-
-    pool->sem.value = STANDBY_SIZE;
 
     pool->parse_queue_head = NULL;
     pool->parse_queue_tail = NULL;
@@ -66,6 +54,17 @@ pool_t *pool_create(int num_seats)
     pool->standby_list_tail = NULL;
 
     pool->num_seats = num_seats;
+
+    for (i = 0; i < MAX_THREADS; i++) {
+        if (pthread_create(&pool->threads[i], NULL, thread_do_work, pool) != 0) {
+            fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
+        }
+    }
+
+    if (pthread_create(&pool->clean_thread, NULL, cleanUp, pool) != 0) {
+        fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
+    }
+
     //pool->thread_count = MAX_THREADS;
 
     return pool;
@@ -78,6 +77,7 @@ pool_t *pool_create(int num_seats)
  */
 int pool_add_task(pool_t *pool, pool_task_t *task)
 {
+    printf("priority = %d\n", task->req->customer_priority);
     pthread_mutex_lock(&pool->head_lock);
     if (task->status == PARSE) {
         if (pool->parse_queue_head == NULL) {
@@ -87,9 +87,7 @@ int pool_add_task(pool_t *pool, pool_task_t *task)
             pool->parse_queue_tail->next = task;
             pool->parse_queue_tail = task;
         }
-    }
-
-    if (task->status == PROCESS) {
+    } else if (task->status == PROCESS) {
         struct request *req = task->req;
         if (req->customer_priority == FIRST) {
             if (pool->first_queue_head == NULL) {
@@ -99,8 +97,7 @@ int pool_add_task(pool_t *pool, pool_task_t *task)
                 pool->first_queue_tail->next = task;
                 pool->parse_queue_tail = task;
             }
-        }
-        if (req->customer_priority == BIZ) {
+        } else if (req->customer_priority == BIZ) {
             if (pool->biz_queue_head == NULL) {
                 pool->biz_queue_head = task;
                 pool->biz_queue_tail = task;
@@ -108,8 +105,8 @@ int pool_add_task(pool_t *pool, pool_task_t *task)
                 pool->biz_queue_tail->next = task;
                 pool->biz_queue_tail = task;
             }
-        }
-        if (req->customer_priority == COACH) {
+            // somehow 0 indicates a priority, make it as COACH here
+        } else if (req->customer_priority == COACH || req->customer_priority == 0) {
             if (pool->coach_queue_head == NULL) {
                 pool->coach_queue_head = task;
                 pool->coach_queue_tail = task;
@@ -173,7 +170,7 @@ int pool_destroy(pool_t *pool)
  * Work loop for threads. Should be passed into the pthread_create() method.
  *
  */
-static void *thread_do_work(void *arg)
+void *thread_do_work(void *arg)
 { 
     pool_t *pool = (pool_t *) arg;
     while (1) {
@@ -188,31 +185,24 @@ static void *thread_do_work(void *arg)
                 if (pool->parse_queue_head == NULL) {
                     pool->parse_queue_tail = NULL;
                 }
-                break;
-            }
-            if (pool->first_queue_head != NULL) {
+            } else if (pool->first_queue_head != NULL) {
                 task = pool->first_queue_head;
                 pool->first_queue_head = task->next;
                 if (pool->first_queue_head == NULL) {
                     pool->first_queue_tail = NULL;
                 }
-                break;
-            }
-            if (pool->biz_queue_head != NULL) {
+            } else if (pool->biz_queue_head != NULL) {
                 task = pool->biz_queue_head;
                 pool->biz_queue_head = task->next;
                 if (pool->biz_queue_head == NULL) {
                     pool->biz_queue_tail = NULL;
                 }
-                break;
-            }
-            if (pool->coach_queue_head != NULL) {
+            } else if (pool->coach_queue_head != NULL) {
                 task = pool->coach_queue_head;
                 pool->coach_queue_head = task->next;
                 if (pool->coach_queue_head == NULL) {
                     pool->coach_queue_tail = NULL;
                 }
-                break;
             }
         } else {
             pthread_cond_wait(&pool->notify, &pool->head_lock);
@@ -220,7 +210,12 @@ static void *thread_do_work(void *arg)
         pthread_mutex_unlock(&pool->head_lock);
 
         if (task != NULL) {
-            if (task->status == PROCESS) {
+            if (task->status == PARSE) {
+                parse_request(task->connfd, task->req); 
+                task->status = PROCESS;
+                task->next = NULL;
+                pool_add_task(pool, task);
+            } else if (task->status == PROCESS) {
                 int res = process_request(task->connfd, task->req);
                 // should be placed into the standby list
                 if (res == 1) {
@@ -230,12 +225,6 @@ static void *thread_do_work(void *arg)
                     free(task->req);
                     free(task);
                 }
-            }
-            if (task->status == PARSE) {
-                parse_request(task->connfd, task->req); 
-                task->status = PROCESS;
-                task->next = NULL;
-                pool_add_task(pool, task);
             }
         }
     }
