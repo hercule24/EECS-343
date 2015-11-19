@@ -8,7 +8,7 @@
 #define PARSE 0
 #define PROCESS 1
 
-#define MAX_THREADS 4
+#define MAX_THREADS 1
 #define STANDBY_SIZE 10
 #define FIRST 1
 #define BIZ 2
@@ -80,6 +80,6 @@ int sem_wait(m_sem_t *s);
 
 int sem_post(m_sem_t *s);
 
-void addToStandbyList(pool_t *pool, pool_task_t *task);
+int addToStandbyList(pool_t *pool, pool_task_t *task);
 
 #endif

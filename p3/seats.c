@@ -39,7 +39,7 @@ int view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custome
     {
         if(curr->id == seat_id)
         {
-            pthread_mutex_lock(&pool->seat_locks[curr->id-1]);
+            pthread_mutex_lock(&pool->seat_locks[curr->id]);
             if(curr->state == AVAILABLE || (curr->state == PENDING && curr->customer_id == customer_id))
             {
                 snprintf(buf, bufsize, "Confirm seat: %d %c ?\n\n",
@@ -53,9 +53,13 @@ int view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custome
             else
             {
                 snprintf(buf, bufsize, "Seat unavailable\n\n");
-                res = 1;
+                pthread_mutex_lock(&pool->seats_taken_lock);
+                if (pool->seats_taken == pool->num_seats) {
+                    res = 1;
+                }
+                pthread_mutex_unlock(&pool->seats_taken_lock);
             }
-            pthread_mutex_unlock(&pool->seat_locks[curr->id-1]);
+            pthread_mutex_unlock(&pool->seat_locks[curr->id]);
             return res;
         }
         curr = curr->next;
@@ -71,7 +75,7 @@ void confirm_seat(char* buf, int bufsize, int seat_id, int customer_id, int cust
     {
         if(curr->id == seat_id)
         {
-            pthread_mutex_lock(&pool->seat_locks[curr->id-1]);
+            pthread_mutex_lock(&pool->seat_locks[curr->id]);
             if(curr->state == PENDING && curr->customer_id == customer_id )
             {
                 snprintf(buf, bufsize, "Seat confirmed: %d %c\n\n",
@@ -86,7 +90,7 @@ void confirm_seat(char* buf, int bufsize, int seat_id, int customer_id, int cust
             {
                 snprintf(buf, bufsize, "No pending request\n\n");
             }
-            pthread_mutex_unlock(&pool->seat_locks[curr->id-1]);
+            pthread_mutex_unlock(&pool->seat_locks[curr->id]);
 
             return;
         }
@@ -105,7 +109,7 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
     {
         if(curr->id == seat_id)
         {
-            pthread_mutex_lock(&pool->seat_locks[curr->id-1]);
+            pthread_mutex_lock(&pool->seat_locks[curr->id]);
             if(curr->state == PENDING && curr->customer_id == customer_id )
             {
                 snprintf(buf, bufsize, "Seat request cancelled: %d %c\n\n",
@@ -117,11 +121,13 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
                 if (pool->standby_list_head != NULL) {
                     pool_task_t *task = pool->standby_list_head;
                     pool->standby_list_head = task->next;
+                    pool->standby_list_size--;
                     if (pool->standby_list_head == NULL) {
                         pool->standby_list_tail = NULL;
                     }
                     curr->state = OCCUPIED;
                     customer_id = task->req->user_id;
+                    printf("closing request if a stanbylist task is finished: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
                     close(task->connfd);
                     free(task->req);
                     free(task);
@@ -140,7 +146,7 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
             {
                 snprintf(buf, bufsize, "No pending request\n\n");
             }
-            pthread_mutex_unlock(&pool->seat_locks[curr->id-1]);
+            pthread_mutex_unlock(&pool->seat_locks[curr->id]);
 
             return;
         }

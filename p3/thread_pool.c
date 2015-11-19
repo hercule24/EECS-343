@@ -64,9 +64,9 @@ pool_t *pool_create(int num_seats)
         }
     }
 
-    if (pthread_create(&pool->clean_thread, NULL, cleanUp, pool) != 0) {
-        fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
-    }
+    //if (pthread_create(&pool->clean_thread, NULL, cleanUp, pool) != 0) {
+    //    fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
+    //}
 
     //pool->thread_count = MAX_THREADS;
 
@@ -128,17 +128,25 @@ int pool_add_task(pool_t *pool, pool_task_t *task)
 /**
  * Add a task to the standby list
  */
-void addToStandbyList(pool_t *pool, pool_task_t *task)
+int addToStandbyList(pool_t *pool, pool_task_t *task)
 {
+    int res; 
     sem_wait(&pool->sem);
     if (pool->standby_list_head == NULL) {
         pool->standby_list_head = task;
         pool->standby_list_tail = task;
+        pool->standby_list_size++;
+        res = 0;
+    } else if (pool->standby_list_size == STANDBY_SIZE) {
+        res = -1;
     } else {
         pool->standby_list_tail->next = task;
         pool->standby_list_tail = task;
+        pool->standby_list_size++;
+        res = 0;
     }
     sem_post(&pool->sem);
+    return res;
 }
 
 
@@ -160,14 +168,14 @@ int pool_destroy(pool_t *pool)
         }
     }
 
-    if (pthread_cancel(pool->clean_thread) != 0) {
-        fprintf(stderr, "Failed to cancel clean up thread %d: %s\n", i, strerror(errno));
-        return -1;
-    }
-    if (pthread_join(pool->clean_thread, NULL) != 0) {
-        fprintf(stderr, "Failed to join clean up thread %d: %s\n", i, strerror(errno));
-        return -1;
-    }
+    //if (pthread_cancel(pool->clean_thread) != 0) {
+    //    fprintf(stderr, "Failed to cancel clean up thread %d: %s\n", i, strerror(errno));
+    //    return -1;
+    //}
+    //if (pthread_join(pool->clean_thread, NULL) != 0) {
+    //    fprintf(stderr, "Failed to join clean up thread %d: %s\n", i, strerror(errno));
+    //    return -1;
+    //}
  
     pthread_mutex_destroy(&pool->head_lock);
     for (i = 0; i < pool->num_seats; i++) {
@@ -233,6 +241,7 @@ void *thread_do_work(void *arg)
         if (task != NULL) {
             if (task->status == PARSE) {
                 parse_request(task->connfd, task->req); 
+                printf("incoming request: user id = %d, connfd = %d, seat_id = %d\n", task->req->user_id, task->connfd, task->req->seat_id);
                 task->status = PROCESS;
                 task->next = NULL;
                 pool_add_task(pool, task);
@@ -240,8 +249,14 @@ void *thread_do_work(void *arg)
                 int res = process_request(task->connfd, task->req);
                 // res = 1, indicating the task is added to the standby list
                 if (res == 1) {
-                    addToStandbyList(pool, task);
+                    if (addToStandbyList(pool, task) == -1) {
+                        printf("closing request if stanbylist is full: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
+                        close(task->connfd);
+                        free(task->req);
+                        free(task);
+                    }
                 } else {
+                    printf("closing request if finished successfully: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
                     close(task->connfd);
                     free(task->req);
                     free(task);
