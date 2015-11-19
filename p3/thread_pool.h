@@ -2,6 +2,7 @@
 #define _THREADPOOL_H_
 #include <pthread.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #define PARSE 0
 #define PROCESS 1
@@ -23,7 +24,9 @@ typedef struct pool_task {
 } pool_task_t;
 
 typedef struct m_sem_t {
-    int value;
+    int occupied;
+    pthread_mutex_t lock;
+    pthread_cond_t cond;
 } m_sem_t;
 
 struct pool_t {
@@ -47,8 +50,10 @@ struct pool_t {
   pool_task_t *coach_queue_tail;
   pool_task_t *standby_list_head;
   pool_task_t *standby_list_tail;
+  int standby_list_size;
   //int thread_count;
   int num_seats;
+  int remaining_seats_num;
   //int task_queue_size_limit;
 };
 
@@ -64,5 +69,13 @@ int pool_destroy(pool_t *pool);
 void shutdown_server(int);
 
 void *cleanUp(void *args);
+
+void sem_init(m_sem_t *s);
+
+void sem_destroy(m_sem_t *s);
+
+int sem_wait(m_sem_t *s);
+
+int sem_post(m_sem_t *s);
 
 #endif

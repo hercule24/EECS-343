@@ -107,7 +107,11 @@ void parse_request(int connfd, struct request* req)
     req->customer_priority = parse_int_arg(file, "priority=");
 }
 
-// return 1, for cases when all seats are pending or occupied.
+/**
+ * return -1, for cases when all seats are pending or occupied.
+ * return seat_id if it's a successful cancel request.
+ * otherwise return 0.
+ */
 int process_request(int connfd, struct request* req)
 {
     char *ok_response = "HTTP/1.0 200 OK\r\n"\
@@ -123,25 +127,25 @@ int process_request(int connfd, struct request* req)
     int length = strlen(req->resource);
     int res;
     if (req->resource == NULL){
-        return -1;
+        return 0;
     }
     // Check if the request is for one of our operations
     if (strncmp(req->resource, "list_seats", length) == 0)
     {  
-        list_seats(buf, BUFSIZE);
+        res = list_seats(buf, BUFSIZE);
         // send headers
         writenbytes(connfd, ok_response, strlen(ok_response));
         // send data
         writenbytes(connfd, buf, strlen(buf));
-        return 0;
     } 
     else if(strncmp(req->resource, "view_seat", length) == 0)
     {
-        res = view_seat(buf, BUFSIZE, req->seat_id, req->user_id, req->customer_priority);
+        view_seat(buf, BUFSIZE, req->seat_id, req->user_id, req->customer_priority);
         // send headers
         writenbytes(connfd, ok_response, strlen(ok_response));
         // send data
         writenbytes(connfd, buf, strlen(buf));
+        res = 0;
     } 
     else if(strncmp(req->resource, "confirm", length) == 0)
     {
@@ -154,12 +158,11 @@ int process_request(int connfd, struct request* req)
     }
     else if(strncmp(req->resource, "cancel", length) == 0)
     {
-        cancel(buf, BUFSIZE, req->seat_id, req->user_id, req->customer_priority);
+        res = cancel(buf, BUFSIZE, req->seat_id, req->user_id, req->customer_priority);
         // send headers
         writenbytes(connfd, ok_response, strlen(ok_response));
         // send data
         writenbytes(connfd, buf, strlen(buf));
-        res = 0;
     }
     else
     {
