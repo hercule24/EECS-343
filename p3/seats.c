@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "seats.h"
+#include "util.h"
 #include "thread_pool.h"
 
 seat_t* seat_header = NULL;
@@ -10,8 +11,7 @@ extern pool_t *pool;
 
 char seat_state_to_char(seat_state_t);
 
-// return -1, if seat unavailable
-int list_seats(char* buf, int bufsize)
+void list_seats(char* buf, int bufsize)
 {
     seat_t* curr = seat_header;
     int index = 0;
@@ -25,16 +25,16 @@ int list_seats(char* buf, int bufsize)
     }
     if (index > 0) {
         snprintf(buf+index-1, bufsize-index-1, "\n");
-        return 0;
     } else {
         snprintf(buf, bufsize, "No seats not found\n\n");
-        return -1;
     }
 }
 
-void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int customer_priority)
+// return 1 if this request gets into the standby list
+int view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int customer_priority)
 {
     seat_t* curr = seat_header;
+    int res = 0;
     while(curr != NULL)
     {
         if(curr->id == seat_id)
@@ -46,18 +46,22 @@ void view_seat(char* buf, int bufsize,  int seat_id, int customer_id, int custom
                         curr->id, seat_state_to_char(curr->state));
                 curr->state = PENDING;
                 curr->customer_id = customer_id;
+                pthread_mutex_lock(&pool->seats_taken_lock);
+                pool->seats_taken++;
+                pthread_mutex_unlock(&pool->seats_taken_lock);
             }
             else
             {
                 snprintf(buf, bufsize, "Seat unavailable\n\n");
+                res = 1;
             }
             pthread_mutex_unlock(&pool->seat_locks[curr->id-1]);
-            return;
+            return res;
         }
         curr = curr->next;
     }
     snprintf(buf, bufsize, "Requested seat not found\n\n");
-    return;
+    return res;
 }
 
 void confirm_seat(char* buf, int bufsize, int seat_id, int customer_id, int customer_priority)
@@ -94,10 +98,9 @@ void confirm_seat(char* buf, int bufsize, int seat_id, int customer_id, int cust
 }
 
 // return the seat_id if it's a successful cancel request
-int cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_priority)
+void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_priority)
 {
     seat_t* curr = seat_header;
-    int res = 0;
     while(curr != NULL)
     {
         if(curr->id == seat_id)
@@ -109,7 +112,25 @@ int cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_pr
                         curr->id, seat_state_to_char(curr->state));
                 curr->state = AVAILABLE;
                 curr->customer_id = -1;
-                res = seat_id;
+
+                sem_wait(&pool->sem);
+                if (pool->standby_list_head != NULL) {
+                    pool_task_t *task = pool->standby_list_head;
+                    pool->standby_list_head = task->next;
+                    if (pool->standby_list_head == NULL) {
+                        pool->standby_list_tail = NULL;
+                    }
+                    curr->state = OCCUPIED;
+                    customer_id = task->req->user_id;
+                    close(task->connfd);
+                    free(task->req);
+                    free(task);
+                } else {
+                    pthread_mutex_lock(&pool->seats_taken_lock);
+                    pool->seats_taken--;
+                    pthread_mutex_unlock(&pool->seats_taken_lock);
+                }
+                sem_post(&pool->sem);
             }
             else if(curr->customer_id != customer_id )
             {
@@ -121,12 +142,12 @@ int cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_pr
             }
             pthread_mutex_unlock(&pool->seat_locks[curr->id-1]);
 
-            return res;
+            return;
         }
         curr = curr->next;
     }
     snprintf(buf, bufsize, "Seat not found\n\n");
-    return 0;
+    return;
 }
 
 void load_seats(int number_of_seats)

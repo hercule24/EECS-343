@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -56,6 +55,8 @@ pool_t *pool_create(int num_seats)
     pool->standby_list_size = 0;
 
     pool->num_seats = num_seats;
+    pool->seats_taken = 0;
+    pthread_mutex_init(&pool->seats_taken_lock, NULL);
 
     for (i = 0; i < MAX_THREADS; i++) {
         if (pthread_create(&pool->threads[i], NULL, thread_do_work, pool) != 0) {
@@ -79,7 +80,6 @@ pool_t *pool_create(int num_seats)
  */
 int pool_add_task(pool_t *pool, pool_task_t *task)
 {
-    printf("priority = %d\n", task->req->customer_priority);
     pthread_mutex_lock(&pool->head_lock);
     if (task->status == PARSE) {
         if (pool->parse_queue_head == NULL) {
@@ -125,6 +125,22 @@ int pool_add_task(pool_t *pool, pool_task_t *task)
 }
 
 
+/**
+ * Add a task to the standby list
+ */
+void addToStandbyList(pool_t *pool, pool_task_t *task)
+{
+    sem_wait(&pool->sem);
+    if (pool->standby_list_head == NULL) {
+        pool->standby_list_head = task;
+        pool->standby_list_tail = task;
+    } else {
+        pool->standby_list_tail->next = task;
+        pool->standby_list_tail = task;
+    }
+    sem_post(&pool->sem);
+}
+
 
 /*
  * Destroy the threadpool, free all memory, destroy treads, etc
@@ -166,6 +182,7 @@ int pool_destroy(pool_t *pool)
     //pthread_mutex_destroy(&(pool->coach_queue_head_lock));
 
     pthread_cond_destroy(&pool->notify);
+    pthread_mutex_destroy(&pool->seats_taken_lock);
     free(pool);
     return 0;
 }
@@ -189,8 +206,6 @@ void *thread_do_work(void *arg)
                 if (pool->parse_queue_head == NULL) {
                     pool->parse_queue_tail = NULL;
                 }
-            } else if (pool->standby_list_head != NULL) {
-                task = pool->standby_list_tail;
             } else if (pool->first_queue_head != NULL) {
                 task = pool->first_queue_head;
                 pool->first_queue_head = task->next;
@@ -223,37 +238,13 @@ void *thread_do_work(void *arg)
                 pool_add_task(pool, task);
             } else if (task->status == PROCESS) {
                 int res = process_request(task->connfd, task->req);
-                // res = -1, indicating all seats are pending or occupied.
-                // should be placed into the standby list.
-                // if res > 0, indicating a successful cancel request,
-                // then the res is the seat_id cancelled.
-                // otherwise res = 0
-                close(task->connfd);
-                free(task->req);
-                free(task);
-                if (res == 0) {
-                } else if (res == -1) {
-                    //pool_add_task(pool, task);
-                } else if (res > 0) {
-                    int seat_id = res;
-                    sem_wait(&pool->sem);
-                    if (pool->standby_list_head != NULL) {
-                        task = pool->standby_list_head;
-                        pool->standby_list_head = task->next;
-                        if (pool->standby_list_head == NULL) {
-                            pool->standby_list_tail = NULL;
-                        }
-                    }
-                    sem_post(&pool->sem);
-                    if (task != NULL) {
-                        task->req->seat_id = seat_id;
-                        //task->req->resource = (char *) malloc(strlen("view_seat"));
-                        //strcpy(task->req->resource, "view_seat");
-                        process_request(task->connfd, task->req);
-                        close(task->connfd);
-                        free(task->req);
-                        free(task);
-                    }
+                // res = 1, indicating the task is added to the standby list
+                if (res == 1) {
+                    addToStandbyList(pool, task);
+                } else {
+                    close(task->connfd);
+                    free(task->req);
+                    free(task);
                 }
             }
         }

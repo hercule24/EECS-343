@@ -108,8 +108,8 @@ void parse_request(int connfd, struct request* req)
 }
 
 /**
- * return -1, for cases when all seats are pending or occupied.
- * return seat_id if it's a successful cancel request.
+ * return -1, if resources empty
+ * return 1, if the request is added into the standby list
  * otherwise return 0.
  */
 int process_request(int connfd, struct request* req)
@@ -122,30 +122,30 @@ int process_request(int connfd, struct request* req)
                             "<html><body bgColor=white text=black>\n"\
                             "<h2>404 FILE NOT FOUND</h2>\n"\
                             "</body></html>\n";
+    if (req->resource == NULL) {
+        return -1;
+    }
     int fd;
     char buf[BUFSIZE+1];
     int length = strlen(req->resource);
     int res;
-    if (req->resource == NULL){
-        return 0;
-    }
     // Check if the request is for one of our operations
     if (strncmp(req->resource, "list_seats", length) == 0)
     {  
-        res = list_seats(buf, BUFSIZE);
-        // send headers
-        writenbytes(connfd, ok_response, strlen(ok_response));
-        // send data
-        writenbytes(connfd, buf, strlen(buf));
-    } 
-    else if(strncmp(req->resource, "view_seat", length) == 0)
-    {
-        view_seat(buf, BUFSIZE, req->seat_id, req->user_id, req->customer_priority);
+        list_seats(buf, BUFSIZE);
         // send headers
         writenbytes(connfd, ok_response, strlen(ok_response));
         // send data
         writenbytes(connfd, buf, strlen(buf));
         res = 0;
+    } 
+    else if(strncmp(req->resource, "view_seat", length) == 0)
+    {
+        res = view_seat(buf, BUFSIZE, req->seat_id, req->user_id, req->customer_priority);
+        // send headers
+        writenbytes(connfd, ok_response, strlen(ok_response));
+        // send data
+        writenbytes(connfd, buf, strlen(buf));
     } 
     else if(strncmp(req->resource, "confirm", length) == 0)
     {
@@ -158,11 +158,12 @@ int process_request(int connfd, struct request* req)
     }
     else if(strncmp(req->resource, "cancel", length) == 0)
     {
-        res = cancel(buf, BUFSIZE, req->seat_id, req->user_id, req->customer_priority);
+        cancel(buf, BUFSIZE, req->seat_id, req->user_id, req->customer_priority);
         // send headers
         writenbytes(connfd, ok_response, strlen(ok_response));
         // send data
         writenbytes(connfd, buf, strlen(buf));
+        res = 0;
     }
     else
     {

@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 #define PARSE 0
 #define PROCESS 1
@@ -53,7 +54,8 @@ struct pool_t {
   int standby_list_size;
   //int thread_count;
   int num_seats;
-  int remaining_seats_num;
+  int seats_taken;
+  pthread_mutex_t seats_taken_lock;
   //int task_queue_size_limit;
 };
 
@@ -77,5 +79,7 @@ void sem_destroy(m_sem_t *s);
 int sem_wait(m_sem_t *s);
 
 int sem_post(m_sem_t *s);
+
+void addToStandbyList(pool_t *pool, pool_task_t *task);
 
 #endif
