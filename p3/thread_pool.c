@@ -282,7 +282,7 @@ void *cleanUp(void *args) {
 	seat_t *cur = seat_header;
 	while (cur != NULL) {
 	    if (cur->state == PENDING) {
-		i = cur->id - 1;
+		i = cur->id; // - 1 if start from 1
 		if (status[i] == 1 && cur->customer_id == cid[i]) {
 		    pthread_mutex_lock(&pool->seat_locks[i]);
 		    cur->state = AVAILABLE;
