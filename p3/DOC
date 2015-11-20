@@ -1,14 +1,27 @@
+Please consider for extra credit
 
-
-
-
-
-
-
+Thread Pool and Worker queues:
+We have 5 worker queues, one is the parse queue, one is for the first class request,
+one for the buisiness class request, one is for the coach class request, and one for
+the standby list. The main thread is responsible for adding the incoming request
+We have MAX_THREAD number threads working to parse and process the request. If there 
+is a incoming request, the main thread will add this thread into the parse queue,
+and notifying other threads waiting on a conditional variable to begin working. After
+a thread finished parsing the request, it will dispath the request into other 
+processing queues (first class, biz class, coach class) and notify other waiting threads
+(if any) to begin working. Every queue head is protected by a lock, also we give every
+seat a dedicated lock to guarantee synchronization. We have a global variable to track
+how many seats have been made pending or occupied, when this number equals the total
+number of seats, at this point of time, if there is incoming request, it will be added
+to the standby list if it's not full, so we have another variable tracking the current
+size of the standby list. When a seat is cancelled, we have not releasing the lock for
+the seat immediately, we will first assign it to a request in the standby list, if not
+empty.
 
 Cleanup pending requests:
 Create a cleanup thread and initialize the seats’ states to be AVAILABLE at first. Then,
-after every 5 seconds, check each seat’s status and update accordingly. If one seat was Pending before with the same user id, and it is still Pending after 5 seconds, then we 
+after every 5 seconds, check each seat’s status and update accordingly. If one seat was 
+Pending before with the same user id, and it is still Pending after 5 seconds, then we 
 set the state to be AVAILABLE. 
 BenchMark:
 MAX_THREAD = 1:
