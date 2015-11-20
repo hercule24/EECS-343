@@ -35,10 +35,6 @@ struct pool_t {
   pthread_mutex_t head_lock;
   pthread_mutex_t *seat_locks;
   m_sem_t sem;
-  //pthread_mutex_t parse_queue_head_lock;
-  //pthread_mutex_t first_queue_head_lock;
-  //pthread_mutex_t biz_queue_head_lock;
-  //pthread_mutex_t coach_queue_head_lock;
   pthread_cond_t notify;
   pthread_t threads[MAX_THREADS];
   pthread_t clean_thread;
@@ -53,16 +49,13 @@ struct pool_t {
   pool_task_t *standby_list_head;
   pool_task_t *standby_list_tail;
   int standby_list_size;
-  //int thread_count;
   int num_seats;
   int seats_taken;
   pthread_mutex_t seats_taken_lock;
-  //int task_queue_size_limit;
 };
 
 pool_t *pool_create(int num_seats);
 
-//int pool_add_task(pool_t *pool, void *(*routine)(void *), void *arg);
 int pool_add_task(pool_t *pool, pool_task_t *task);
 
 void *thread_do_work(void *pool);

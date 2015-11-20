@@ -27,6 +27,7 @@ extern time_t total_time;
 
 pool_t *pool_create(int num_seats)
 {
+    // initialize the lock for worker queues
     pool_t *pool = (pool_t *) malloc(sizeof(pool_t));
     pthread_mutex_init(&pool->head_lock, NULL);
     // create a lock for every seat
@@ -40,6 +41,7 @@ pool_t *pool_create(int num_seats)
 
     pthread_cond_init(&pool->notify, NULL);
 
+    // create a queue for every kind of task
     pool->parse_queue_head = NULL;
     pool->parse_queue_tail = NULL;
     pool->first_queue_head = NULL;
@@ -57,12 +59,14 @@ pool_t *pool_create(int num_seats)
     pool->seats_taken = 0;
     pthread_mutex_init(&pool->seats_taken_lock, NULL);
 
+    // create working threads
     for (i = 0; i < MAX_THREADS; i++) {
         if (pthread_create(&pool->threads[i], NULL, thread_do_work, pool) != 0) {
             fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
         }
     }
 
+    // create clean up thread
     if (pthread_create(&pool->clean_thread, NULL, cleanUp, pool) != 0) {
         fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
     }
@@ -116,6 +120,7 @@ int pool_add_task(pool_t *pool, pool_task_t *task)
         }
     }
     pthread_mutex_unlock(&pool->head_lock);
+    // notify all other waiting processes.
     pthread_cond_broadcast(&pool->notify);
         
     return 0;
@@ -198,6 +203,7 @@ void *thread_do_work(void *arg)
     while (1) {
         pool_task_t *task = NULL;
 
+        // check if there is task available, do the task
         pthread_mutex_lock(&pool->head_lock);
         if (pool->parse_queue_head != NULL || pool->first_queue_head != NULL || 
                 pool->biz_queue_head != NULL || pool->coach_queue_head != NULL) {
@@ -227,6 +233,7 @@ void *thread_do_work(void *arg)
                 }
             }
         } else {
+            // otherwise wait to be notified.
             pthread_cond_wait(&pool->notify, &pool->head_lock);
         }
         pthread_mutex_unlock(&pool->head_lock);
@@ -283,6 +290,7 @@ void *cleanUp(void *args) {
 	cid[i] = -1;
     }
     while (1) {
+        // sleep by 5 secs to check any pending
 	sleep(5);
 	seat_t *cur = seat_header;
 	while (cur != NULL) {

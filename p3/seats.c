@@ -121,6 +121,7 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
                 curr->customer_id = -1;
 
                 sem_wait(&pool->sem);
+                // check if there is task in the standby list
                 if (pool->standby_list_head != NULL) {
                     pool_task_t *task = pool->standby_list_head;
                     pool->standby_list_head = task->next;
@@ -128,6 +129,7 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
                     if (pool->standby_list_head == NULL) {
                         pool->standby_list_tail = NULL;
                     }
+                    // assign the seat to the user
                     curr->state = OCCUPIED;
                     customer_id = task->req->user_id;
                     //printf("closing request if a stanbylist task is finished: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);

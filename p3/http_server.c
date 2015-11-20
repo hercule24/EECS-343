@@ -99,6 +99,7 @@ int main(int argc,char *argv[])
             to other locations when you make your server multithreaded.
         *********************************************************************/
         
+        // first wrap the metadata into a struct and add them into the parse queue.
         struct request *req = (struct request *) malloc(sizeof(struct request));
         pool_task_t *task = (pool_task_t *) malloc(sizeof(pool_task_t));
         task->start_time = time(0);
