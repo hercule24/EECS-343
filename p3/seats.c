@@ -130,7 +130,7 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
                     }
                     curr->state = OCCUPIED;
                     customer_id = task->req->user_id;
-                    printf("closing request if a stanbylist task is finished: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
+                    //printf("closing request if a stanbylist task is finished: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
 
                     pthread_mutex_lock(&time_lock);
                     total_time += time(0) - task->start_time;

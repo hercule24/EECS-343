@@ -51,7 +51,7 @@ void parse_request(int connfd, struct request* req)
     //Only accept GET requests
     if (strncmp(instr, "GET", 3) != 0) {
         writenbytes(connfd, bad_request, strlen(bad_request));
-        printf("closing request if only get request: user id = %d, connfd = %d\n", req->user_id, connfd);
+        //printf("closing request if only get request: user id = %d, connfd = %d\n", req->user_id, connfd);
         close(connfd);
         req->resource = NULL;
         return;

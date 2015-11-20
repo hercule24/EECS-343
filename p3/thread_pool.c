@@ -35,11 +35,7 @@ pool_t *pool_create(int num_seats)
     for (i = 0; i < num_seats; i++) {
         pthread_mutex_init(&pool->seat_locks[i], NULL);
     }
-    //pthread_mutex_init(&pool->parse_queue_head_lock, NULL);
-    //pthread_mutex_init(&pool->first_queue_head_lock, NULL);
-    //pthread_mutex_init(&pool->biz_queue_head_lock, NULL);
-    //pthread_mutex_init(&pool->coach_queue_head_lock, NULL);
-    //
+
     sem_init(&pool->sem);
 
     pthread_cond_init(&pool->notify, NULL);
@@ -67,11 +63,9 @@ pool_t *pool_create(int num_seats)
         }
     }
 
-    //if (pthread_create(&pool->clean_thread, NULL, cleanUp, pool) != 0) {
-    //    fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
-    //}
-
-    //pool->thread_count = MAX_THREADS;
+    if (pthread_create(&pool->clean_thread, NULL, cleanUp, pool) != 0) {
+        fprintf(stderr, "Failed to create thread %d: %s\n", i, strerror(errno));
+    }
 
     return pool;
 }
@@ -171,14 +165,14 @@ int pool_destroy(pool_t *pool)
         }
     }
 
-    //if (pthread_cancel(pool->clean_thread) != 0) {
-    //    fprintf(stderr, "Failed to cancel clean up thread %d: %s\n", i, strerror(errno));
-    //    return -1;
-    //}
-    //if (pthread_join(pool->clean_thread, NULL) != 0) {
-    //    fprintf(stderr, "Failed to join clean up thread %d: %s\n", i, strerror(errno));
-    //    return -1;
-    //}
+    if (pthread_cancel(pool->clean_thread) != 0) {
+        fprintf(stderr, "Failed to cancel clean up thread %d: %s\n", i, strerror(errno));
+        return -1;
+    }
+    if (pthread_join(pool->clean_thread, NULL) != 0) {
+        fprintf(stderr, "Failed to join clean up thread %d: %s\n", i, strerror(errno));
+        return -1;
+    }
  
     pthread_mutex_destroy(&pool->head_lock);
     for (i = 0; i < pool->num_seats; i++) {
@@ -187,10 +181,6 @@ int pool_destroy(pool_t *pool)
     free(pool->seat_locks);
 
     sem_destroy(&pool->sem);
-    //pthread_mutex_destroy(&(pool->parse_queue_head_lock));
-    //pthread_mutex_destroy(&(pool->first_queue_head_lock));
-    //pthread_mutex_destroy(&(pool->biz_queue_head_lock));
-    //pthread_mutex_destroy(&(pool->coach_queue_head_lock));
 
     pthread_cond_destroy(&pool->notify);
     pthread_mutex_destroy(&pool->seats_taken_lock);
@@ -244,7 +234,7 @@ void *thread_do_work(void *arg)
         if (task != NULL) {
             if (task->status == PARSE) {
                 parse_request(task->connfd, task->req); 
-                printf("incoming request: user id = %d, connfd = %d, seat_id = %d\n", task->req->user_id, task->connfd, task->req->seat_id);
+                //printf("incoming request: user id = %d, connfd = %d, seat_id = %d\n", task->req->user_id, task->connfd, task->req->seat_id);
                 task->status = PROCESS;
                 task->next = NULL;
                 pool_add_task(pool, task);
@@ -253,7 +243,7 @@ void *thread_do_work(void *arg)
                 // res = 1, indicating the task is added to the standby list
                 if (res == 1) {
                     if (addToStandbyList(pool, task) == -1) {
-                        printf("closing request if stanbylist is full: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
+                        //printf("closing request if stanbylist is full: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
 
                         pthread_mutex_lock(&time_lock);
                         total_time += time(0) - task->start_time;
@@ -265,7 +255,7 @@ void *thread_do_work(void *arg)
                         free(task);
                     }
                 } else {
-                    printf("closing request if finished successfully: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
+                    //printf("closing request if finished successfully: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
 
                     pthread_mutex_lock(&time_lock);
                     total_time += time(0) - task->start_time;
