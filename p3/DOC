@@ -25,11 +25,23 @@ Pending before with the same user id, and it is still Pending after 5 seconds, t
 set the state to be AVAILABLE. 
 BenchMark:
 MAX_THREAD = 1:
-Average Response Time: 24.9261279095 ms
-Total Time = 37.8859388828 seconds
-2
-Average Response Time: 28.4474283319 ms
-Total Time = 45.1547300816 seconds
-3
-Average Response Time: 32.3296701798 ms
-Total Time = 50.2981240749 seconds
+Average Response Time: 3.594470 ms
+Total Time = 156 seconds
+MAX_THREAD = 2:
+Average Response Time: 1.428571 ms
+Total Time = 62 seconds
+MAX_THREAD = 3:
+Average Response Time: 0.990783 ms
+Total Time = 43 seconds
+MAX_THREAD = 4:
+Average Response Time: 1.129359 ms
+Total Time = 48 seconds
+MAX_THREAD = 5:
+Average Response Time: 1.428571 ms
+Total Time = 62 seconds
+
+As we can see from above, when we increase MAX_THREAD, we noticed a drop of average response time
+due to parallel process of the requests. However, when we increase the number further more, we 
+observed an increase of the response time due to the cost of context switch. So for the tesing
+environment that we use, we choose 3 as our MAX_THREAD. In general cases, this number should depend
+on the number of cores of the CPU.
