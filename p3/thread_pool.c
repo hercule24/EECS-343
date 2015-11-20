@@ -21,6 +21,9 @@
  *
  */
 extern seat_t *seat_header;
+extern pthread_mutex_t time_lock;
+extern int num_requests;
+extern time_t total_time;
 
 pool_t *pool_create(int num_seats)
 {
@@ -251,12 +254,24 @@ void *thread_do_work(void *arg)
                 if (res == 1) {
                     if (addToStandbyList(pool, task) == -1) {
                         printf("closing request if stanbylist is full: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
+
+                        pthread_mutex_lock(&time_lock);
+                        total_time += time(0) - task->start_time;
+                        num_requests += 1;
+                        pthread_mutex_unlock(&time_lock);
+
                         close(task->connfd);
                         free(task->req);
                         free(task);
                     }
                 } else {
                     printf("closing request if finished successfully: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
+
+                    pthread_mutex_lock(&time_lock);
+                    total_time += time(0) - task->start_time;
+                    num_requests += 1;
+                    pthread_mutex_unlock(&time_lock);
+
                     close(task->connfd);
                     free(task->req);
                     free(task);

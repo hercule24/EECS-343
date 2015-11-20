@@ -22,6 +22,7 @@ typedef struct pool_task {
     int connfd;
     struct request *req;
     struct pool_task *next;
+    time_t start_time;
 } pool_task_t;
 
 typedef struct m_sem_t {

@@ -8,6 +8,9 @@
 
 seat_t* seat_header = NULL;
 extern pool_t *pool;
+extern pthread_mutex_t time_lock;
+extern int num_requests;
+extern time_t total_time;
 
 char seat_state_to_char(seat_state_t);
 
@@ -128,6 +131,12 @@ void cancel(char* buf, int bufsize, int seat_id, int customer_id, int customer_p
                     curr->state = OCCUPIED;
                     customer_id = task->req->user_id;
                     printf("closing request if a stanbylist task is finished: user id = %d, connfd = %d\n", task->req->user_id, task->connfd);
+
+                    pthread_mutex_lock(&time_lock);
+                    total_time += time(0) - task->start_time;
+                    num_requests += 1;
+                    pthread_mutex_unlock(&time_lock);
+
                     close(task->connfd);
                     free(task->req);
                     free(task);

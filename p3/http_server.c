@@ -21,6 +21,10 @@ int listenfd;
 // TODO: Declare your threadpool!
 pool_t *pool = NULL;
 
+int num_requests = 0;
+time_t total_time = 0;
+pthread_mutex_t time_lock;
+
 int main(int argc,char *argv[])
 {
     int flag, num_seats = 20;
@@ -55,6 +59,8 @@ int main(int argc,char *argv[])
     printf("Established Socket: %d\n", listenfd);
     flag = 1;
     setsockopt( listenfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag) );
+
+    pthread_mutex_init(&time_lock, NULL);
 
     // Load the seats;
     load_seats(num_seats);
@@ -95,6 +101,7 @@ int main(int argc,char *argv[])
         
         struct request *req = (struct request *) malloc(sizeof(struct request));
         pool_task_t *task = (pool_task_t *) malloc(sizeof(pool_task_t));
+        task->start_time = time(0);
         task->status = PARSE;
         task->connfd = connfd;
         task->req = req;
@@ -106,6 +113,11 @@ int main(int argc,char *argv[])
 void shutdown_server(int signo)
 {
     printf("Shutting down the server...\n");
+    pthread_mutex_lock(&time_lock);
+    printf("total_time = %lu\n", total_time);
+    printf("num of requests = %d\n", num_requests);
+    printf("Average response time is: %f miliseconds\n", ((float) total_time / num_requests) * 1000);
+    pthread_mutex_unlock(&time_lock);
     
     // TODO: Teardown your threadpool
     if (pool != NULL) {
@@ -113,6 +125,7 @@ void shutdown_server(int signo)
     }
 
     // TODO: Print stats about your ability to handle requests.
+    pthread_mutex_destroy(&time_lock);
     unload_seats();
     close(listenfd);
     exit(0);

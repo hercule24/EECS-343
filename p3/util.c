@@ -7,13 +7,10 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <stdbool.h>
-#include <errno.h>
 
 #include "util.h"
 #include "seats.h"
-
+#include "thread_pool.h"
 
 #define BUFSIZE 1024
 
