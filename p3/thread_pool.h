@@ -8,7 +8,7 @@
 #define PARSE 0
 #define PROCESS 1
 
-#define MAX_THREADS 1
+#define MAX_THREADS 3
 #define STANDBY_SIZE 10
 #define FIRST 1
 #define BIZ 2
