@@ -30,3 +30,6 @@ After you use the pointer, if the pointer will be used in the future, **please m
 p = NULL;
 ```
 All the above efforts are to prevent the notorious segmentation fault, I hope we won't spend to much time debugging seg fault.
+
+### Project 4
+There is also a good article about the Ext2 on http://wiki.osdev.org/Ext2.
