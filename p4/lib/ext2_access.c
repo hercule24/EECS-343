@@ -17,14 +17,13 @@
 
 // Return a pointer to the primary superblock of a filesystem.
 struct ext2_super_block * get_super_block(void * fs) {
-    return (struct ext2_super_block *) ((size_t) fs + 1024);
+    return (struct ext2_super_block *) ((size_t) fs + SUPERBLOCK_OFFSET);
 }
 
 
 // Return the block size for a filesystem.
 __u32 get_block_size(void * fs) {
-    // FIXME: Uses reference implementation.
-    return *((__u32 *) ((size_t) fs + 1048));
+    return 1024 << *((__u32 *) ((size_t) fs + SUPERBLOCK_OFFSET + 24));
 }
 
 
