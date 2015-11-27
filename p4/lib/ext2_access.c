@@ -30,8 +30,7 @@ __u32 get_block_size(void * fs) {
 // Return a pointer to a block given its number.
 // get_block(fs, 0) == fs;
 void * get_block(void * fs, __u32 block_num) {
-    // FIXME: Uses reference implementation.
-    return _ref_get_block(fs, block_num);
+    return (void *) ((size_t) fs + get_block_size(fs) * block_num);
 }
 
 
@@ -39,8 +38,7 @@ void * get_block(void * fs, __u32 block_num) {
 // ext2 filesystems will have several of these, but, for simplicity, we will
 // assume there is only one.
 struct ext2_group_desc * get_block_group(void * fs, __u32 block_group_num) {
-    // FIXME: Uses reference implementation.
-    return _ref_get_block_group(fs, block_group_num);
+    return (struct ext2_group_desc *) ((size_t) get_super_block(fs) + SUPERBLOCK_SIZE);
 }
 
 
@@ -49,7 +47,16 @@ struct ext2_group_desc * get_block_group(void * fs, __u32 block_group_num) {
 // first one.
 struct ext2_inode * get_inode(void * fs, __u32 inode_num) {
     // FIXME: Uses reference implementation.
-    return _ref_get_inode(fs, inode_num);
+    //struct ext2_inode *inode_table = (struct ext2_inode *) ((size_t) first + sizeof(__u32) * 2);
+    //struct ext2_inode *inode_table = (struct ext2_inode *) ((size_t) first + sizeof(__u32) * 2);
+    //__u32 *addr = (__u32 *) ((size_t) first + sizeof(__u32) * 2);
+    
+    struct ext2_group_desc *des = get_block_group(fs, 0);
+    __u64 bg_inode_table = des->bg_inode_table;
+    //size_t addr = (size_t) first + sizeof(__u32) * 2;
+    return (struct ext2_inode *) bg_inode_table + (inode_num - 1);
+    
+    //return _ref_get_inode(fs, inode_num);
 }
 
 
