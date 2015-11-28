@@ -46,17 +46,9 @@ struct ext2_group_desc * get_block_group(void * fs, __u32 block_group_num) {
 // would require finding the correct block group, but you may assume it's in the
 // first one.
 struct ext2_inode * get_inode(void * fs, __u32 inode_num) {
-    // FIXME: Uses reference implementation.
-    //struct ext2_inode *inode_table = (struct ext2_inode *) ((size_t) first + sizeof(__u32) * 2);
-    //struct ext2_inode *inode_table = (struct ext2_inode *) ((size_t) first + sizeof(__u32) * 2);
-    //__u32 *addr = (__u32 *) ((size_t) first + sizeof(__u32) * 2);
-    
     struct ext2_group_desc *des = get_block_group(fs, 0);
-    __u64 bg_inode_table = des->bg_inode_table;
-    //size_t addr = (size_t) first + sizeof(__u32) * 2;
+    void *bg_inode_table = get_block(fs, des->bg_inode_table);
     return (struct ext2_inode *) bg_inode_table + (inode_num - 1);
-    
-    //return _ref_get_inode(fs, inode_num);
 }
 
 
