@@ -1,15 +1,8 @@
 // ext2 definitions from the real driver in the Linux kernel.
 #include "ext2fs.h"
 
-// This header allows your project to link against the reference library. If you
-// complete the entire project, you should be able to remove this directive and
-// still compile your code.
-#include "reference_implementation.h"
-
 // Definitions for ext2cat to compile against.
 #include "ext2_access.h"
-
-
 
 ///////////////////////////////////////////////////////////
 //  Accessors for the basic components of ext2.
@@ -42,8 +35,6 @@ struct ext2_group_desc * get_block_group(void * fs, __u32 block_group_num) {
 }
 
 
-// Return a pointer to an inode given its number. In a real filesystem, this
-// would require finding the correct block group, but you may assume it's in the
 // first one.
 struct ext2_inode * get_inode(void * fs, __u32 inode_num) {
     struct ext2_group_desc *des = get_block_group(fs, 0);

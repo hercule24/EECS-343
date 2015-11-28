@@ -1,0 +1,17 @@
+Please consider for extra credit
+
+Basic idea for this project is to go through the specification and ext2fs.h
+to understand the structure of the ext2 file system. Understanding the
+structure of the super block and its fixed location will help to solve the
+first two functions. And the third one is trivial, because every block can 
+be indexed like an array element in the file system. Knowing that the block
+group descriptor is always the next block of the super block will help solve
+the fourth function. For the fifth function, we can get the address of the 
+inode_table from the block group descriptor. Because the content of a directory
+indoe is an array of directory entries, by iterating over the entries, and compare
+the name of target file/directories to the entries name, we can find the desired
+file eventually. For the extra credit, the first indirect node's number is stored
+as the 13th element in the i_block of the inode of the file. After we get the
+address of the indirect node' block, since this block consists of the node ids 
+where the data is actually stored, we can go though this block to get all the blocks
+storing the data.
