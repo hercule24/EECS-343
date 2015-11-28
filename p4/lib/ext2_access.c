@@ -100,7 +100,21 @@ struct ext2_inode * get_root_dir(void * fs) {
 __u32 get_inode_from_dir(void * fs, struct ext2_inode * dir, 
         char * name) {
     // FIXME: Uses reference implementation.
-    return _ref_get_inode_from_dir(fs, dir, name);
+    __u32 block_size = get_block_size(fs);
+
+    for (int i = 0; i < EXT2_N_BLOCKS; i++) {
+        __u64 block = dir->i_block[i]; 
+        struct ext2_dir_entry_2 *p = (struct ext2_dir_entry_2 *) block;
+        while ((size_t) p % block_size != 0) {
+            if (strcmp(p->name, name) == 0) {
+                return p->inode;             
+            }
+            p = (struct ext2_dir_entry_2 *) ((size_t) p + p->rec_len);
+        }
+    } 
+
+    return 0;
+    //return _ref_get_inode_from_dir(fs, dir, name);
 }
 
 
