@@ -104,8 +104,9 @@ __u32 get_inode_from_dir(void * fs, struct ext2_inode * dir,
     for (int i = 0; i < EXT2_N_BLOCKS; i++) {
         void *block = get_block(fs, dir->i_block[i]); 
         struct ext2_dir_entry_2 *p = (struct ext2_dir_entry_2 *) block;
-        while ((size_t) p != (size_t) block + block_size) {
-            if (strcmp(p->name, name) == 0) {
+        struct ext2_dir_entry_2 *end = (struct ext2_dir_entry_2 *) ((size_t) block + block_size);
+        while (p < end && p->rec_len != 0) {
+            if (strncmp(p->name, name, p->name_len) == 0) {
                 return p->inode;             
             }
             p = (struct ext2_dir_entry_2 *) ((size_t) p + p->rec_len);
@@ -119,7 +120,27 @@ __u32 get_inode_from_dir(void * fs, struct ext2_inode * dir,
 // Find the inode number for a file by its full path.
 // This is the functionality that ext2cat ultimately needs.
 __u32 get_inode_by_path(void * fs, char * path) {
-    // FIXME: Uses reference implementation.
-    return _ref_get_inode_by_path(fs, path);
+    struct ext2_inode *p = get_root_dir(fs);
+
+    int num_slashes = 0;
+    for (char * slash = path; slash != NULL; slash = strchr(slash + 1, '/')) {
+        num_slashes++;
+    }
+
+    char **parts = split_path(path);                
+
+    __u32 num;
+
+    for (int i = 0; i < num_slashes; i++) {
+        num = get_inode_from_dir(fs, p, parts[i]);
+        free(parts[i]);
+        if (num == 0) {
+            break;
+        }
+        p = get_inode(fs, num);
+    }
+    
+    free(parts);
+    return num;
 }
 
