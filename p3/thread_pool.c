@@ -205,36 +205,34 @@ void *thread_do_work(void *arg)
 
         // check if there is task available, do the task
         pthread_mutex_lock(&pool->head_lock);
-        if (pool->parse_queue_head != NULL || pool->first_queue_head != NULL || 
-                pool->biz_queue_head != NULL || pool->coach_queue_head != NULL) {
-            if (pool->parse_queue_head != NULL) {
-                task = pool->parse_queue_head;
-                pool->parse_queue_head = task->next;
-                if (pool->parse_queue_head == NULL) {
-                    pool->parse_queue_tail = NULL;
-                }
-            } else if (pool->first_queue_head != NULL) {
-                task = pool->first_queue_head;
-                pool->first_queue_head = task->next;
-                if (pool->first_queue_head == NULL) {
-                    pool->first_queue_tail = NULL;
-                }
-            } else if (pool->biz_queue_head != NULL) {
-                task = pool->biz_queue_head;
-                pool->biz_queue_head = task->next;
-                if (pool->biz_queue_head == NULL) {
-                    pool->biz_queue_tail = NULL;
-                }
-            } else if (pool->coach_queue_head != NULL) {
-                task = pool->coach_queue_head;
-                pool->coach_queue_head = task->next;
-                if (pool->coach_queue_head == NULL) {
-                    pool->coach_queue_tail = NULL;
-                }
-            }
-        } else {
-            // otherwise wait to be notified.
+        while (pool->parse_queue_head == NULL && pool->first_queue_head == NULL &&
+                pool->biz_queue_head == NULL && pool->coach_queue_head == NULL) {
             pthread_cond_wait(&pool->notify, &pool->head_lock);
+        }
+        if (pool->parse_queue_head != NULL) {
+            task = pool->parse_queue_head;
+            pool->parse_queue_head = task->next;
+            if (pool->parse_queue_head == NULL) {
+                pool->parse_queue_tail = NULL;
+            }
+        } else if (pool->first_queue_head != NULL) {
+            task = pool->first_queue_head;
+            pool->first_queue_head = task->next;
+            if (pool->first_queue_head == NULL) {
+                pool->first_queue_tail = NULL;
+            }
+        } else if (pool->biz_queue_head != NULL) {
+            task = pool->biz_queue_head;
+            pool->biz_queue_head = task->next;
+            if (pool->biz_queue_head == NULL) {
+                pool->biz_queue_tail = NULL;
+            }
+        } else if (pool->coach_queue_head != NULL) {
+            task = pool->coach_queue_head;
+            pool->coach_queue_head = task->next;
+            if (pool->coach_queue_head == NULL) {
+                pool->coach_queue_tail = NULL;
+            }
         }
         pthread_mutex_unlock(&pool->head_lock);
 
